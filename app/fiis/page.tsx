@@ -1,24 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from '../../src/components/layout/Sidebar';
 import { initialAssets } from '../../src/data/initialState';
 import { updateAssetsWithPrices } from '../../src/api/stockApi';
 
-export default function FIIsPage() {
+export default function FiisPage() {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Estado para controlar a ordenação da tabela
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   useEffect(() => {
     async function loadPrices() {
       setLoading(true);
       const updated = await updateAssetsWithPrices(initialAssets);
       // FILTRO: Pega apenas os ativos da classe FII
-      const onlyFIIs = updated.filter(
-        (item) =>
-          item.asset?.assetClass === 'FII' || item.asset?.assetClass === 'FIIS'
+      const onlyFiis = updated.filter(
+        (item) => item.asset?.assetClass === 'FII'
       );
-      setAssets(onlyFIIs);
+      setAssets(onlyFiis);
       setLoading(false);
     }
 
@@ -37,6 +39,49 @@ export default function FIIsPage() {
         assets.length
       : 0;
 
+  // Lógica de Ordenação
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedAssets = useMemo(() => {
+    let sortableAssets = [...assets];
+    if (sortConfig !== null) {
+      sortableAssets.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        switch (sortConfig.key) {
+          case 'ticker': aValue = a.asset?.ticker; bValue = b.asset?.ticker; break;
+          case 'nome': aValue = a.asset?.name; bValue = b.asset?.name; break;
+          case 'qtd': aValue = a.currentQuantity; bValue = b.currentQuantity; break;
+          case 'cotacao': aValue = a.currentPrice || 0; bValue = b.currentPrice || 0; break;
+          case 'variacao': aValue = a.dailyChangePercent || 0; bValue = b.dailyChangePercent || 0; break;
+          case 'valorTotal': aValue = a.currentValue || 0; bValue = b.currentValue || 0; break;
+          default: return 0;
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableAssets;
+  }, [assets, sortConfig]);
+
+  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+    if (sortConfig?.key !== columnKey) return <span className="text-[#2A2F3D] ml-1">⇅</span>;
+    return sortConfig.direction === 'asc' ? (
+      <span className="text-[#8B5CF6] ml-1">▲</span>
+    ) : (
+      <span className="text-[#8B5CF6] ml-1">▼</span>
+    );
+  };
+
   return (
     <div className="flex h-screen bg-[#0B0E14] text-[#F1F5F9] overflow-hidden font-sans">
       <Sidebar />
@@ -49,7 +94,7 @@ export default function FIIsPage() {
               CARTEIRA DE FIIs
             </h1>
             <p className="text-xs text-[#8B949E]">
-              Geração de renda passiva e dividendos imobiliários
+              Visão detalhada e performance dos Fundos Imobiliários
             </p>
           </div>
           <div className="text-right font-mono text-xs text-[#8B949E]">
@@ -93,20 +138,48 @@ export default function FIIsPage() {
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D] bg-[#0B0E14]">
+              <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D] bg-[#0B0E14] select-none">
                 <tr>
-                  <th className="px-4 py-3 rounded-tl">Ticker</th>
-                  <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3 text-right">Qtd</th>
-                  <th className="px-4 py-3 text-right">Cotação</th>
-                  <th className="px-4 py-3 text-right">Variação (Dia)</th>
-                  <th className="px-4 py-3 text-right rounded-tr">
-                    Valor Total
+                  <th 
+                    className="px-4 py-3 rounded-tl cursor-pointer hover:bg-[#1A1F2B] transition-colors"
+                    onClick={() => handleSort('ticker')}
+                  >
+                    Ticker <SortIcon columnKey="ticker" />
+                  </th>
+                  <th 
+                    className="px-4 py-3 cursor-pointer hover:bg-[#1A1F2B] transition-colors"
+                    onClick={() => handleSort('nome')}
+                  >
+                    Nome <SortIcon columnKey="nome" />
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B] transition-colors"
+                    onClick={() => handleSort('qtd')}
+                  >
+                    <SortIcon columnKey="qtd" /> Qtd
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B] transition-colors"
+                    onClick={() => handleSort('cotacao')}
+                  >
+                    <SortIcon columnKey="cotacao" /> Cotação
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B] transition-colors"
+                    onClick={() => handleSort('variacao')}
+                  >
+                    <SortIcon columnKey="variacao" /> Variação (Dia)
+                  </th>
+                  <th 
+                    className="px-4 py-3 text-right rounded-tr cursor-pointer hover:bg-[#1A1F2B] transition-colors"
+                    onClick={() => handleSort('valorTotal')}
+                  >
+                    <SortIcon columnKey="valorTotal" /> Valor Total
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2A2F3D] font-mono">
-                {assets.map((item, idx) => (
+                {sortedAssets.map((item, idx) => (
                   <tr
                     key={idx}
                     className="hover:bg-[#1A1F2B] transition-colors"
