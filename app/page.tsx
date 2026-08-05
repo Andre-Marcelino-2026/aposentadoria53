@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from '../src/components/layout/Sidebar';
 import { initialAssets, userProfile } from '../src/data/initialState';
 import { updateAssetsWithPrices } from '../src/api/stockApi';
-// Importações novas da biblioteca recharts
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function Home() {
   const [assets, setAssets] = useState<any[]>(initialAssets);
   const [loading, setLoading] = useState<boolean>(true);
+  
+  // Estado para controlar a ordenação da tabela consolidada
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   useEffect(() => {
     async function loadPrices() {
@@ -33,6 +35,19 @@ export default function Home() {
     100
   ).toFixed(1);
 
+  // --- CÁLCULO DE RENDIMENTO DO DIA (EM R$ E %) ---
+  const totalDailyChangeValue = assets.reduce((acc, item) => {
+    const currentValue = item.currentValue || 0;
+    const changePercent = item.dailyChangePercent || 0;
+    // Estima o ganho/perda em R$ do ativo no dia
+    const previousValue = currentValue / (1 + changePercent / 100);
+    return acc + (currentValue - previousValue);
+  }, 0);
+
+  const totalDailyChangePercent = totalPatrimony > 0 
+    ? (totalDailyChangeValue / (totalPatrimony - totalDailyChangeValue)) * 100 
+    : 0;
+
   // --- LÓGICA DO GRÁFICO (DISTRIBUIÇÃO DA CARTEIRA) ---
   const assetAllocation = assets.reduce((acc, item) => {
     const assetClass = item.asset?.assetClass || 'OUTROS';
@@ -50,15 +65,58 @@ export default function Home() {
     value: assetAllocation[key],
   }));
 
-  // 3. Definir as cores do gráfico (AJUSTADO COM TODAS AS CLASSES DA SUA BASE)
   const COLORS: Record<string, string> = {
-    AÇÕES: '#3B82F6', // Azul
-    FII: '#8B5CF6', // Roxo
-    'RENDA FIXA': '#10B981', // Verde
-    ETF: '#F43F5E', // Rosa
-    BDR: '#EAB308', // Amarelo
-    IMÓVEIS: '#06B6D4', // Ciano
-    OUTROS: '#F97316', // Laranja
+    AÇÕES: '#3B82F6',
+    FII: '#8B5CF6',
+    'RENDA FIXA': '#10B981',
+    ETF: '#F43F5E',
+    BDR: '#EAB308',
+    IMÓVEIS: '#06B6D4',
+    OUTROS: '#F97316',
+  };
+
+  // --- LÓGICA DE ORDENAÇÃO LOCAL ---
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedAssets = useMemo(() => {
+    let sortableAssets = [...assets];
+    if (sortConfig !== null) {
+      sortableAssets.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        switch (sortConfig.key) {
+          case 'ticker': aValue = a.asset?.ticker; bValue = b.asset?.ticker; break;
+          case 'nome': aValue = a.asset?.name; bValue = b.asset?.name; break;
+          case 'classe': aValue = a.asset?.assetClass; bValue = b.asset?.assetClass; break;
+          case 'qtd': aValue = a.currentQuantity; bValue = b.currentQuantity; break;
+          case 'cotacao': aValue = a.currentPrice || 0; bValue = b.currentPrice || 0; break;
+          case 'variacao': aValue = a.dailyChangePercent || 0; bValue = b.dailyChangePercent || 0; break;
+          case 'valorTotal': aValue = a.currentValue || 0; bValue = b.currentValue || 0; break;
+          default: return 0;
+        }
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableAssets;
+  }, [assets, sortConfig]);
+
+  const SortIcon = ({ columnKey }: { columnKey: string }) => {
+    if (sortConfig?.key !== columnKey) return <span className="text-[#2A2F3D] ml-1">⇅</span>;
+    return sortConfig.direction === 'asc' ? (
+      <span className="text-[#3B82F6] ml-1">▲</span>
+    ) : (
+      <span className="text-[#3B82F6] ml-1">▼</span>
+    );
   };
 
   return (
@@ -73,8 +131,7 @@ export default function Home() {
               DASHBOARD EXECUTIVO
             </h1>
             <p className="text-xs text-[#8B949E]">
-              Projeto Aposentadoria {userProfile.targetRetirementAge} • Visão
-              Consolidada
+              Projeto Aposentadoria {userProfile.targetRetirementAge} • Visão Consolidada
             </p>
           </div>
           <div className="text-right font-mono text-xs text-[#8B949E]">
@@ -85,9 +142,34 @@ export default function Home() {
           </div>
         </div>
 
+        {/* --- CARD HIGHLIGHT: RESULTADO DO DIA --- */}
+        <div className="bg-[#151922] border border-[#2A2F3D] rounded p-4 shadow-lg flex flex-wrap justify-between items-center gap-4">
+          <div>
+            <span className="text-xs text-[#8B949E] uppercase tracking-wider block">
+              Rendimento Consolidado (Hoje)
+            </span>
+            <div className="flex items-baseline gap-3 mt-1">
+              <span className={`text-2xl font-bold font-mono ${totalDailyChangeValue >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+                {totalDailyChangeValue >= 0 ? '+' : ''}
+                R$ {totalDailyChangeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className={`text-sm font-bold font-mono px-2 py-0.5 rounded ${totalDailyChangePercent >= 0 ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#EF4444]/10 text-[#EF4444]'}`}>
+                {totalDailyChangePercent >= 0 ? '+' : ''}
+                {totalDailyChangePercent.toFixed(2)}% {totalDailyChangePercent >= 0 ? '▲' : '▼'}
+              </span>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-xs text-[#8B949E] uppercase tracking-wider block">Patrimônio Total</span>
+            <span className="text-xl font-bold font-mono text-[#F1F5F9]">
+              R$ {totalPatrimony.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div>
+
         {/* --- ÁREA DE RESUMO (META + GRÁFICO) --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card Aposentadoria (Esquerda) */}
+          {/* Card Aposentadoria */}
           <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-center mb-4">
@@ -95,8 +177,7 @@ export default function Home() {
                   META APOSENTADORIA {userProfile.targetRetirementAge} ANOS
                 </h2>
                 <span className="text-[#8B949E] text-xs font-mono border border-[#2A2F3D] px-2 py-1 rounded bg-[#0B0E14]">
-                  Idade: {userProfile.currentAge} / Meta:{' '}
-                  {userProfile.targetRetirementAge} anos
+                  Idade: {userProfile.currentAge} / Meta: {userProfile.targetRetirementAge} anos
                 </span>
               </div>
 
@@ -128,7 +209,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Barra de Progresso Real */}
+            {/* Barra de Progresso */}
             <div>
               <div className="w-full h-3 bg-[#0B0E14] rounded-full overflow-hidden border border-[#2A2F3D]">
                 <div
@@ -146,7 +227,7 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Card Gráfico de Alocação (Direita) */}
+          {/* Card Gráfico de Alocação */}
           <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
             <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide mb-4">
               DISTRIBUIÇÃO DA CARTEIRA
@@ -190,8 +271,7 @@ export default function Home() {
               </ResponsiveContainer>
             </div>
 
-            {/* Legenda Customizada */}
-            <div className="flex justify-center gap-4 mt-2">
+            <div className="flex justify-center gap-4 mt-2 flex-wrap">
               {chartData.map((entry, idx) => (
                 <div key={idx} className="flex items-center gap-2">
                   <span
@@ -209,7 +289,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Tabela de Ativos da Carteira Real */}
+        {/* Tabela Consolidada com Filtro */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide">
@@ -225,21 +305,33 @@ export default function Home() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D] bg-[#0B0E14]">
+              <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D] bg-[#0B0E14] select-none">
                 <tr>
-                  <th className="px-4 py-3 rounded-tl">Ticker</th>
-                  <th className="px-4 py-3">Nome</th>
-                  <th className="px-4 py-3">Classe</th>
-                  <th className="px-4 py-3 text-right">Qtd</th>
-                  <th className="px-4 py-3 text-right">Cotação</th>
-                  <th className="px-4 py-3 text-right">Variação (Dia)</th>
-                  <th className="px-4 py-3 text-right rounded-tr">
-                    Valor Total
+                  <th className="px-4 py-3 rounded-tl cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('ticker')}>
+                    Ticker <SortIcon columnKey="ticker" />
+                  </th>
+                  <th className="px-4 py-3 cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('nome')}>
+                    Nome <SortIcon columnKey="nome" />
+                  </th>
+                  <th className="px-4 py-3 cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('classe')}>
+                    Classe <SortIcon columnKey="classe" />
+                  </th>
+                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('qtd')}>
+                    <SortIcon columnKey="qtd" /> Qtd
+                  </th>
+                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('cotacao')}>
+                    <SortIcon columnKey="cotacao" /> Cotação
+                  </th>
+                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('variacao')}>
+                    <SortIcon columnKey="variacao" /> Variação (Dia)
+                  </th>
+                  <th className="px-4 py-3 text-right rounded-tr cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('valorTotal')}>
+                    <SortIcon columnKey="valorTotal" /> Valor Total
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2A2F3D] font-mono">
-                {assets.map((item, idx) => (
+                {sortedAssets.map((item, idx) => (
                   <tr
                     key={idx}
                     className="hover:bg-[#1A1F2B] transition-colors"
