@@ -12,6 +12,7 @@ export function Sidebar() {
     { label: 'FIIs', href: '/fiis' },
     { label: 'ETFs & BDRs', href: '/etfs' },
     { label: 'Renda Fixa', href: '/renda-fixa' },
+    { label: 'Valuation & Research', href: '/valuation' },
     { label: 'Aportes', href: '/aportes' },
     { label: 'Dividendos', href: '/dividendos' },
   ];
@@ -37,7 +38,7 @@ export function Sidebar() {
                 href={item.href}
                 className={`flex items-center px-4 py-2.5 text-xs font-semibold rounded transition-colors ${
                   isActive
-                    ? 'bg-[#3B82F6] text-white'
+                    ? 'bg-[#3B82F6] text-[#FFFFFF]'
                     : 'text-[#8B949E] hover:bg-[#1A1F2B] hover:text-[#F1F5F9]'
                 }`}
               >
