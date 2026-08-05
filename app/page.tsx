@@ -4,13 +4,34 @@ import { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from '../src/components/layout/Sidebar';
 import { initialAssets, userProfile } from '../src/data/initialState';
 import { updateAssetsWithPrices } from '../src/api/stockApi';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+} from 'recharts';
+
+// Histórico patrimonial acumulado simulado
+const mockPatrimonyHistory = [
+  { month: 'Jan', total: 285000 },
+  { month: 'Fev', total: 292000 },
+  { month: 'Mar', total: 298500 },
+  { month: 'Abr', total: 304200 },
+  { month: 'Mai', total: 311000 },
+  { month: 'Jun', total: 317800 },
+  { month: 'Jul', total: 322400 },
+  { month: 'Ago', total: 325670 },
+];
 
 export default function Home() {
   const [assets, setAssets] = useState<any[]>(initialAssets);
   const [loading, setLoading] = useState<boolean>(true);
-  
-  // Estado para controlar a ordenação da tabela consolidada
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   useEffect(() => {
@@ -24,7 +45,6 @@ export default function Home() {
     loadPrices();
   }, []);
 
-  // --- CÁLCULOS REAIS DO DASHBOARD ---
   const totalPatrimony = assets.reduce(
     (acc, item) => acc + (item.currentValue || 0),
     0
@@ -35,11 +55,9 @@ export default function Home() {
     100
   ).toFixed(1);
 
-  // --- CÁLCULO DE RENDIMENTO DO DIA (EM R$ E %) ---
   const totalDailyChangeValue = assets.reduce((acc, item) => {
     const currentValue = item.currentValue || 0;
     const changePercent = item.dailyChangePercent || 0;
-    // Estima o ganho/perda em R$ do ativo no dia
     const previousValue = currentValue / (1 + changePercent / 100);
     return acc + (currentValue - previousValue);
   }, 0);
@@ -48,7 +66,6 @@ export default function Home() {
     ? (totalDailyChangeValue / (totalPatrimony - totalDailyChangeValue)) * 100 
     : 0;
 
-  // --- LÓGICA DO GRÁFICO (DISTRIBUIÇÃO DA CARTEIRA) ---
   const assetAllocation = assets.reduce((acc, item) => {
     const assetClass = item.asset?.assetClass || 'OUTROS';
     const value = item.currentValue || 0;
@@ -75,7 +92,6 @@ export default function Home() {
     OUTROS: '#F97316',
   };
 
-  // --- LÓGICA DE ORDENAÇÃO LOCAL ---
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -124,7 +140,6 @@ export default function Home() {
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Cabeçalho */}
         <div className="flex justify-between items-center border-b border-[#2A2F3D] pb-4">
           <div>
             <h1 className="text-xl font-bold tracking-tight">
@@ -142,7 +157,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* --- CARD HIGHLIGHT: RESULTADO DO DIA --- */}
+        {/* Card Rendimento Consolidado */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-4 shadow-lg flex flex-wrap justify-between items-center gap-4">
           <div>
             <span className="text-xs text-[#8B949E] uppercase tracking-wider block">
@@ -167,9 +182,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* --- ÁREA DE RESUMO (META + GRÁFICO) --- */}
+        {/* Área de Resumo (Meta + Gráfico Alocação) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card Aposentadoria */}
           <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-center mb-4">
@@ -209,7 +223,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Barra de Progresso */}
             <div>
               <div className="w-full h-3 bg-[#0B0E14] rounded-full overflow-hidden border border-[#2A2F3D]">
                 <div
@@ -227,7 +240,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Card Gráfico de Alocação */}
           <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
             <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide mb-4">
               DISTRIBUIÇÃO DA CARTEIRA
@@ -289,7 +301,49 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Tabela Consolidada com Filtro */}
+        {/* --- NOVO: GRÁFICO DE EVOLUÇÃO PATRIMONIAL --- */}
+        <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
+          <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide mb-4">
+            EVOLUÇÃO DO PATRIMÔNIO TOTAL (R$)
+          </h2>
+          <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={mockPatrimonyHistory}>
+                <defs>
+                  <linearGradient id="patrimonyGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2F3D" vertical={false} />
+                <XAxis dataKey="month" stroke="#8B949E" fontSize={12} tickLine={false} />
+                <YAxis
+                  stroke="#8B949E"
+                  fontSize={12}
+                  tickLine={false}
+                  domain={['dataMin - 10000', 'dataMax + 10000']}
+                  tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`}
+                />
+                <Tooltip
+                  formatter={(val: number) =>
+                    `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                  }
+                  contentStyle={{ backgroundColor: '#1A1F2B', borderColor: '#2A2F3D', color: '#F1F5F9' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="total"
+                  stroke="#10B981"
+                  strokeWidth={2}
+                  fillOpacity={1}
+                  fill="url(#patrimonyGradient)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Tabela Consolidada */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide">
