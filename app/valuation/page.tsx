@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import { Sidebar } from '../../src/components/layout/Sidebar';
 
-// Base de dados simulada com indicadores fundamentalistas de valuation
 const mockValuationData = [
   { ticker: 'BBSE3', name: 'BB Seguridade', class: 'AÇÕES', price: 41.44, pl: 9.8, pvp: 5.2, dy: 9.1, roe: 53.4, margin: 82.1, status: 'Barato' },
   { ticker: 'ITSA4', name: 'Itaúsa', class: 'AÇÕES', price: 10.15, pl: 7.2, pvp: 1.1, dy: 8.4, roe: 16.2, margin: 18.5, status: 'Barato' },
@@ -69,7 +68,6 @@ export default function ValuationPage() {
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Cabeçalho */}
         <div className="flex justify-between items-center border-b border-[#2A2F3D] pb-4">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-[#EAB308]">
@@ -85,7 +83,6 @@ export default function ValuationPage() {
           </div>
         </div>
 
-        {/* Cards de Resumo Fundamentalista */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
             <p className="text-[#8B949E] text-xs mb-1 uppercase tracking-wider">
@@ -113,7 +110,6 @@ export default function ValuationPage() {
           </div>
         </div>
 
-        {/* Tabela de Indicadores com Ordenação */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
           <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide mb-4">
             MÚLTIPLOS FUNDAMENTALISTAS DA CARTEIRA
