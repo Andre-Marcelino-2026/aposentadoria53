@@ -8,7 +8,7 @@ import { updateAssetsWithPrices } from '../../src/api/stockApi';
 export default function AportesPage() {
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [aporteValue, setAporteValue] = useState<number>(2000);
+  const [aporteValue, setAporteValue] = useState<number>(1000);
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   useEffect(() => {
@@ -26,16 +26,35 @@ export default function AportesPage() {
     return assets.reduce((acc, item) => acc + (item.currentValue || 0), 0);
   }, [assets]);
 
-  // Lógica de recomendação de aportes focada nos ativos com menor patrimônio acumulado
+  // Lógica Diversificada: Pega o ativo "mais para trás" de CADA classe de ativo diferente
   const recommendations = useMemo(() => {
     if (totalPatrimony === 0 || assets.length === 0) return [];
 
-    const sortedByValue = [...assets].sort((a, b) => (a.currentValue || 0) - (b.currentValue || 0));
-    const targetPerAsset = aporteValue / Math.min(5, sortedByValue.length);
+    // Agrupa por classe
+    const classesMap: Record<string, any[]> = {};
+    assets.forEach((item) => {
+      const className = item.asset?.assetClass || 'OUTROS';
+      if (!classesMap[className]) {
+        classesMap[className] = [];
+      }
+      classesMap[className].push(item);
+    });
 
-    return sortedByValue.slice(0, 5).map((item) => {
+    // Pega o menor ativo de cada classe existente
+    const selectedAssets: any[] = [];
+    Object.keys(classesMap).forEach((className) => {
+      const items = classesMap[className];
+      items.sort((a, b) => (a.currentValue || 0) - (b.currentValue || 0));
+      if (items.length > 0) {
+        selectedAssets.push(items[0]);
+      }
+    });
+
+    const targetPerAsset = aporteValue / selectedAssets.length;
+
+    return selectedAssets.map((item) => {
       const price = item.currentPrice || 10;
-      const suggestedQty = Math.floor(targetPerAsset / price);
+      const suggestedQty = Math.max(1, Math.floor(targetPerAsset / price));
       const suggestedTotal = suggestedQty * price;
 
       return {
@@ -126,10 +145,10 @@ export default function AportesPage() {
           </div>
         </div>
 
-        {/* Sugestão de Compra Inteligente */}
+        {/* Sugestão de Compra Inteligente Diversificada */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
           <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide mb-4">
-            RECOMENDAÇÃO DE COMPRA PARA MANTER O EQUILÍBRIO
+            RECOMENDAÇÃO DE COMPRA MULTICLASSE (AÇÕES, FIIs, ETFs, RENDA FIXA)
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
