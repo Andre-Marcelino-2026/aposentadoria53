@@ -14,6 +14,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 
+// Dados simulados de proventos recebidos nos últimos meses
 const mockDividendHistory = [
   { month: 'Jan', amount: 1450.20 },
   { month: 'Fev', amount: 1680.50 },
@@ -25,6 +26,7 @@ const mockDividendHistory = [
   { month: 'Ago', amount: 2599.47 },
 ];
 
+// Dados detalhados dos últimos pagamentos
 const mockRecentDividends = [
   { id: 1, ticker: 'BBSE3', type: 'Dividendo', payDate: '15/08/2026', rate: 1.25, quantity: 103, total: 128.75 },
   { id: 2, ticker: 'ITSA4', type: 'JCP', payDate: '20/08/2026', rate: 0.18, quantity: 905, total: 162.90 },
@@ -44,6 +46,7 @@ export default function DividendosPage() {
     return totalYear / mockDividendHistory.length;
   }, [totalYear]);
 
+  // Lógica de Ordenação da Tabela
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
@@ -81,13 +84,14 @@ export default function DividendosPage() {
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Cabeçalho */}
         <div className="flex justify-between items-center border-b border-[#2A2F3D] pb-4">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-[#10B981]">
               GESTOR DE DIVIDENDOS
             </h1>
             <p className="text-xs text-[#8B949E]">
-              Acompanhamento de Renda Passiva e Fluxo de Caixa Projetado
+              Acompanhamento de Renda Passiva e Fluxo de Caixa
             </p>
           </div>
           <div className="text-right font-mono text-xs text-[#8B949E]">
@@ -98,96 +102,73 @@ export default function DividendosPage() {
           </div>
         </div>
 
+        {/* Cards de Resumo */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
-            <p className="text-[#8B949E] text-xs mb-1 uppercase tracking-wider">
-              Total Recebido (Ano)
-            </p>
+            <p className="text-[#8B949E] text-xs mb-1 uppercase tracking-wider">Total (Ano)</p>
             <p className="text-[#10B981] text-2xl font-bold font-mono">
-              R$ {totalYear.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              R$ {totalYear.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           </div>
           <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
-            <p className="text-[#8B949E] text-xs mb-1 uppercase tracking-wider">
-              Média Mensal
-            </p>
+            <p className="text-[#8B949E] text-xs mb-1 uppercase tracking-wider">Média Mensal</p>
             <p className="text-[#3B82F6] text-2xl font-bold font-mono">
-              R$ {monthlyAverage.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              R$ {monthlyAverage.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </p>
           </div>
           <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
-            <p className="text-[#8B949E] text-xs mb-1 uppercase tracking-wider">
-              Meta Concluída (Mês Atual)
-            </p>
+            <p className="text-[#8B949E] text-xs mb-1 uppercase tracking-wider">Projeção do Mês</p>
             <p className="text-[#F1F5F9] text-2xl font-bold font-mono">
-              {((mockDividendHistory[mockDividendHistory.length - 1].amount / userProfile.targetMonthlyPassiveIncome) * 100).toFixed(1)}%
+              R$ 2.599,47
             </p>
           </div>
         </div>
 
+        {/* Gráfico de Barras */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
-          <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide mb-4">
-            EVOLUÇÃO MENSAL DOS PROVENTOS (R$)
-          </h2>
+          <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide mb-4">HISTÓRICO DE PROVENTOS</h2>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={mockDividendHistory}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#2A2F3D" vertical={false} />
                 <XAxis dataKey="month" stroke="#8B949E" fontSize={12} tickLine={false} />
-                <YAxis stroke="#8B949E" fontSize={12} tickLine={false} tickFormatter={(val) => `R$${val}`} />
+                <YAxis stroke="#8B949E" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => `R$ ${val}`} />
                 <Tooltip
-                  formatter={(val: number) => `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                  formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                   contentStyle={{ backgroundColor: '#1A1F2B', borderColor: '#2A2F3D', color: '#F1F5F9' }}
+                  cursor={{ fill: '#2A2F3D', opacity: 0.4 }}
                 />
-                <ReferenceLine
-                  y={userProfile.targetMonthlyPassiveIncome}
-                  stroke="#EF4444"
-                  strokeDasharray="4 4"
-                  label={{ value: 'Meta: R$ 5.000', fill: '#EF4444', fontSize: 10, position: 'top' }}
-                />
+                <ReferenceLine y={userProfile.targetMonthlyPassiveIncome} stroke="#3B82F6" strokeDasharray="3 3" label={{ position: 'top', value: 'Meta (R$ 5.000)', fill: '#3B82F6', fontSize: 10 }} />
                 <Bar dataKey="amount" fill="#10B981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
+        {/* Tabela de Proventos */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
-          <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide mb-4">
-            PROVENTOS CONFIRMADOS & ANUNCIADOS
-          </h2>
+          <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide mb-4">ÚLTIMOS LANÇAMENTOS</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D] bg-[#0B0E14] select-none">
                 <tr>
-                  <th className="px-4 py-3 cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('ticker')}>
-                    Ticker <SortIcon columnKey="ticker" />
-                  </th>
-                  <th className="px-4 py-3 cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('type')}>
-                    Tipo <SortIcon columnKey="type" />
-                  </th>
-                  <th className="px-4 py-3 cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('payDate')}>
-                    Data Pagamento <SortIcon columnKey="payDate" />
-                  </th>
-                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('rate')}>
-                    <SortIcon columnKey="rate" /> Valor / Cota
-                  </th>
-                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('quantity')}>
-                    <SortIcon columnKey="quantity" /> Qtd
-                  </th>
-                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('total')}>
-                    <SortIcon columnKey="total" /> Total Recebido
-                  </th>
+                  <th className="px-4 py-3 rounded-tl cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('payDate')}>Data <SortIcon columnKey="payDate" /></th>
+                  <th className="px-4 py-3 cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('ticker')}>Ticker <SortIcon columnKey="ticker" /></th>
+                  <th className="px-4 py-3 cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('type')}>Tipo <SortIcon columnKey="type" /></th>
+                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('rate')}>R$/Cota <SortIcon columnKey="rate" /></th>
+                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('quantity')}>Qtd <SortIcon columnKey="quantity" /></th>
+                  <th className="px-4 py-3 text-right rounded-tr cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('total')}>Total <SortIcon columnKey="total" /></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2A2F3D] font-mono">
-                {sortedDividends.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#1A1F2B] transition-colors">
+                {sortedDividends.map((item, idx) => (
+                  <tr key={idx} className="hover:bg-[#1A1F2B] transition-colors">
+                    <td className="px-4 py-3 text-[#8B949E]">{item.payDate}</td>
                     <td className="px-4 py-3 font-bold text-[#F1F5F9]">{item.ticker}</td>
-                    <td className="px-4 py-3 text-xs text-[#3B82F6] font-sans">{item.type}</td>
-                    <td className="px-4 py-3 text-[#8B949E] text-xs">{item.payDate}</td>
+                    <td className="px-4 py-3 text-[#10B981] text-xs">{item.type}</td>
                     <td className="px-4 py-3 text-right text-[#F1F5F9]">R$ {item.rate.toFixed(2)}</td>
                     <td className="px-4 py-3 text-right text-[#F1F5F9]">{item.quantity}</td>
-                    <td className="px-4 py-3 text-right text-[#10B981] font-bold">
+                    <td className="px-4 py-3 text-right font-bold text-[#10B981]">
                       R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                   </tr>
