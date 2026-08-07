@@ -1,5 +1,5 @@
-// Base de Dados Unificada do Projeto Aposentadoria 53
-// Extrato B3 + Regras Táticas de Valuation e Alocação
+// Base de Dados Unificada - Projeto Aposentadoria 53
+// Ajustado com Nord Research, Finclass e Carteira Própria
 
 export interface Acao {
   ticker: string;
@@ -80,7 +80,7 @@ export const portfolioAcoes: Acao[] = [
     precoTeto: 16.50,
     categoria: 'Crescimento',
     dy: 4.8,
-    research: 'Empiricus',
+    research: 'Finclass',
   },
   {
     ticker: 'BBSE3',
@@ -90,7 +90,7 @@ export const portfolioAcoes: Acao[] = [
     precoTeto: 42.00,
     categoria: 'Dividendos',
     dy: 8.9,
-    research: 'Suno Research',
+    research: 'Nord Research',
   },
   {
     ticker: 'BPAC11',
@@ -100,7 +100,7 @@ export const portfolioAcoes: Acao[] = [
     precoTeto: 58.00,
     categoria: 'Crescimento',
     dy: 2.5,
-    research: 'BTG Research',
+    research: 'Finclass',
   },
   {
     ticker: 'IRBR3',
@@ -110,7 +110,7 @@ export const portfolioAcoes: Acao[] = [
     precoTeto: 50.00,
     categoria: 'Crescimento',
     dy: 1.2,
-    research: 'Genial Analisa',
+    research: 'Carteira Própria',
   },
 ];
 
@@ -124,7 +124,7 @@ export const portfolioFIIs: FII[] = [
     precoTeto: 105.00,
     segmento: 'Logística',
     dyMensal: 0.82,
-    research: 'Suno Research',
+    research: 'Nord Research',
   },
   {
     ticker: 'CPTI11',
@@ -134,7 +134,7 @@ export const portfolioFIIs: FII[] = [
     precoTeto: 95.00,
     segmento: 'Papel / Crédito',
     dyMensal: 0.95,
-    research: 'Nord Research',
+    research: 'Finclass',
   },
 ];
 
