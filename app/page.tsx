@@ -1,441 +1,153 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Sidebar } from '../src/components/layout/Sidebar';
-import { initialAssets, userProfile } from '../src/data/initialState';
-import { updateAssetsWithPrices } from '../src/api/stockApi';
 import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-} from 'recharts';
+  portfolioAcoes,
+  portfolioFIIs,
+  portfolioRendaFixa,
+  userProfile,
+} from '../src/data/portfolio';
 
-// Histórico patrimonial acumulado simulado
-const mockPatrimonyHistory = [
-  { month: 'Jan', total: 285000 },
-  { month: 'Fev', total: 292000 },
-  { month: 'Mar', total: 298500 },
-  { month: 'Abr', total: 304200 },
-  { month: 'Mai', total: 311000 },
-  { month: 'Jun', total: 317800 },
-  { month: 'Jul', total: 322400 },
-  { month: 'Ago', total: 325670 },
-];
-
-export default function Home() {
-  const [assets, setAssets] = useState<any[]>(initialAssets);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
-
-  useEffect(() => {
-    async function loadPrices() {
-      setLoading(true);
-      const updated = await updateAssetsWithPrices(initialAssets);
-      setAssets(updated);
-      setLoading(false);
-    }
-
-    loadPrices();
+export default function DashboardHome() {
+  // Cálculos consolidados a partir da base central de dados (portfolio.ts)
+  const totalAcoes = useMemo(() => {
+    return portfolioAcoes.reduce((acc, item) => acc + item.quantidade * item.precoAtual, 0);
   }, []);
 
-  const totalPatrimony = assets.reduce(
-    (acc, item) => acc + (item.currentValue || 0),
-    0
-  );
-  const estimatedIncome = totalPatrimony * 0.008;
-  const percentComplete = (
-    (estimatedIncome / userProfile.targetMonthlyPassiveIncome) *
-    100
-  ).toFixed(1);
+  const totalFIIs = useMemo(() => {
+    return portfolioFIIs.reduce((acc, item) => acc + item.quantidade * item.precoAtual, 0);
+  }, []);
 
-  const totalDailyChangeValue = assets.reduce((acc, item) => {
-    const currentValue = item.currentValue || 0;
-    const changePercent = item.dailyChangePercent || 0;
-    const previousValue = currentValue / (1 + changePercent / 100);
-    return acc + (currentValue - previousValue);
-  }, 0);
+  const totalRendaFixa = useMemo(() => {
+    return portfolioRendaFixa.reduce((acc, item) => acc + item.valorAtual, 0);
+  }, []);
 
-  const totalDailyChangePercent = totalPatrimony > 0 
-    ? (totalDailyChangeValue / (totalPatrimony - totalDailyChangeValue)) * 100 
-    : 0;
+  const patrimonioTotal = useMemo(() => {
+    return totalAcoes + totalFIIs + totalRendaFixa;
+  }, [totalAcoes, totalFIIs, totalRendaFixa]);
 
-  const assetAllocation = assets.reduce((acc, item) => {
-    const assetClass = item.asset?.assetClass || 'OUTROS';
-    const value = item.currentValue || 0;
-
-    if (!acc[assetClass]) {
-      acc[assetClass] = 0;
-    }
-    acc[assetClass] += value;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const chartData = Object.keys(assetAllocation).map((key) => ({
-    name: key,
-    value: assetAllocation[key],
-  }));
-
-  const COLORS: Record<string, string> = {
-    AÇÕES: '#3B82F6',
-    FII: '#8B5CF6',
-    'RENDA FIXA': '#10B981',
-    ETF: '#F43F5E',
-    BDR: '#EAB308',
-    IMÓVEIS: '#06B6D4',
-    OUTROS: '#F97316',
-  };
-
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedAssets = useMemo(() => {
-    let sortableAssets = [...assets];
-    if (sortConfig !== null) {
-      sortableAssets.sort((a, b) => {
-        let aValue: any;
-        let bValue: any;
-
-        switch (sortConfig.key) {
-          case 'ticker': aValue = a.asset?.ticker; bValue = b.asset?.ticker; break;
-          case 'nome': aValue = a.asset?.name; bValue = b.asset?.name; break;
-          case 'classe': aValue = a.asset?.assetClass; bValue = b.asset?.assetClass; break;
-          case 'qtd': aValue = a.currentQuantity; bValue = b.currentQuantity; break;
-          case 'cotacao': aValue = a.currentPrice || 0; bValue = b.currentPrice || 0; break;
-          case 'variacao': aValue = a.dailyChangePercent || 0; bValue = b.dailyChangePercent || 0; break;
-          case 'valorTotal': aValue = a.currentValue || 0; bValue = b.currentValue || 0; break;
-          default: return 0;
-        }
-
-        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-    return sortableAssets;
-  }, [assets, sortConfig]);
-
-  const SortIcon = ({ columnKey }: { columnKey: string }) => {
-    if (sortConfig?.key !== columnKey) return <span className="text-[#2A2F3D] ml-1">⇅</span>;
-    return sortConfig.direction === 'asc' ? (
-      <span className="text-[#3B82F6] ml-1">▲</span>
-    ) : (
-      <span className="text-[#3B82F6] ml-1">▼</span>
-    );
-  };
+  // Percentuais atuais da carteira
+  const pctAcoes = patrimonioTotal > 0 ? (totalAcoes / patrimonioTotal) * 100 : 0;
+  const pctFIIs = patrimonioTotal > 0 ? (totalFIIs / patrimonioTotal) * 100 : 0;
+  const pctRendaFixa = patrimonioTotal > 0 ? (totalRendaFixa / patrimonioTotal) * 100 : 0;
 
   return (
     <div className="flex h-screen bg-[#0B0E14] text-[#F1F5F9] overflow-hidden font-sans">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Cabeçalho do Dashboard */}
         <div className="flex justify-between items-center border-b border-[#2A2F3D] pb-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              DASHBOARD EXECUTIVO
+            <h1 className="text-xl font-bold tracking-tight text-[#10B981]">
+              DASHBOARD PATRIMONIAL
             </h1>
             <p className="text-xs text-[#8B949E]">
-              Projeto Aposentadoria {userProfile.targetRetirementAge} • Visão Consolidada
+              Visão consolidada da carteira real B3 - Projeto Aposentadoria 53
             </p>
           </div>
-          <div className="text-right font-mono text-xs text-[#8B949E]">
-            <span>STATUS: </span>
-            <span className="text-[#10B981] font-bold">
-              {loading ? 'ATUALIZANDO...' : 'ONLINE'}
+          <div className="text-right font-mono">
+            <span className="text-xs text-[#8B949E] block">PATRIMÔNIO TOTAL</span>
+            <span className="text-xl font-bold text-[#10B981]">
+              R$ {patrimonioTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
           </div>
         </div>
 
-        {/* Card Rendimento Consolidado */}
-        <div className="bg-[#151922] border border-[#2A2F3D] rounded p-4 shadow-lg flex flex-wrap justify-between items-center gap-4">
-          <div>
-            <span className="text-xs text-[#8B949E] uppercase tracking-wider block">
-              Rendimento Consolidado (Hoje)
-            </span>
-            <div className="flex items-baseline gap-3 mt-1">
-              <span className={`text-2xl font-bold font-mono ${totalDailyChangeValue >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
-                {totalDailyChangeValue >= 0 ? '+' : ''}
-                R$ {totalDailyChangeValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              <span className={`text-sm font-bold font-mono px-2 py-0.5 rounded ${totalDailyChangePercent >= 0 ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#EF4444]/10 text-[#EF4444]'}`}>
-                {totalDailyChangePercent >= 0 ? '+' : ''}
-                {totalDailyChangePercent.toFixed(2)}% {totalDailyChangePercent >= 0 ? '▲' : '▼'}
-              </span>
+        {/* Cards Resumo das Classes de Ativos */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono">
+          {/* Card Ações */}
+          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-4 shadow">
+            <div className="flex justify-between items-center text-xs text-[#8B949E] mb-1 font-sans">
+              <span>AÇÕES</span>
+              <span className="text-[#10B981] font-bold">{pctAcoes.toFixed(1)}%</span>
             </div>
-          </div>
-          <div className="text-right">
-            <span className="text-xs text-[#8B949E] uppercase tracking-wider block">Patrimônio Total</span>
-            <span className="text-xl font-bold font-mono text-[#F1F5F9]">
-              R$ {totalPatrimony.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-          </div>
-        </div>
-
-        {/* Área de Resumo (Meta + Gráfico Alocação) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg flex flex-col justify-between">
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide">
-                  META APOSENTADORIA {userProfile.targetRetirementAge} ANOS
-                </h2>
-                <span className="text-[#8B949E] text-xs font-mono border border-[#2A2F3D] px-2 py-1 rounded bg-[#0B0E14]">
-                  Idade: {userProfile.currentAge} / Meta: {userProfile.targetRetirementAge} anos
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6 mb-4">
-                <div>
-                  <p className="text-[#8B949E] text-xs mb-1 uppercase tracking-wider">
-                    Renda Passiva Projetada (0,8% a.m.)
-                  </p>
-                  <p className="text-[#3B82F6] text-2xl font-bold font-mono">
-                    R${' '}
-                    {estimatedIncome.toLocaleString('pt-BR', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[#8B949E] text-xs mb-1 uppercase tracking-wider">
-                    Meta Mensal
-                  </p>
-                  <p className="text-[#F1F5F9] text-2xl font-bold font-mono">
-                    R${' '}
-                    {userProfile.targetMonthlyPassiveIncome.toLocaleString(
-                      'pt-BR',
-                      { minimumFractionDigits: 2 }
-                    )}
-                  </p>
-                </div>
-              </div>
+            <div className="text-lg font-bold text-[#F1F5F9]">
+              R$ {totalAcoes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
-
-            <div>
-              <div className="w-full h-3 bg-[#0B0E14] rounded-full overflow-hidden border border-[#2A2F3D]">
-                <div
-                  className="h-full bg-gradient-to-r from-[#3B82F6] to-[#10B981] transition-all duration-1000 ease-out"
-                  style={{
-                    width: `${Math.min(Number(percentComplete), 100)}%`,
-                  }}
-                ></div>
-              </div>
-              <div className="text-right mt-2">
-                <span className="text-xs text-[#10B981] font-mono font-bold">
-                  {percentComplete}% CONCLUÍDO
-                </span>
-              </div>
+            <div className="text-[10px] text-[#8B949E] mt-2 font-sans">
+              Meta Alvo: {userProfile.targetAllocations.acoes}%
             </div>
           </div>
 
-          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
-            <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide mb-4">
-              DISTRIBUIÇÃO DA CARTEIRA
-            </h2>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {chartData.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[entry.name] || COLORS.OUTROS}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) =>
-                      `R$ ${value.toLocaleString('pt-BR', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}`
-                    }
-                    contentStyle={{
-                      backgroundColor: '#1A1F2B',
-                      borderColor: '#2A2F3D',
-                      color: '#F1F5F9',
-                      borderRadius: '4px',
-                    }}
-                    itemStyle={{ color: '#F1F5F9' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+          {/* Card FIIs */}
+          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-4 shadow">
+            <div className="flex justify-between items-center text-xs text-[#8B949E] mb-1 font-sans">
+              <span>FUNDS IMOBILIÁRIOS (FIIs)</span>
+              <span className="text-[#3B82F6] font-bold">{pctFIIs.toFixed(1)}%</span>
             </div>
+            <div className="text-lg font-bold text-[#F1F5F9]">
+              R$ {totalFIIs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            <div className="text-[10px] text-[#8B949E] mt-2 font-sans">
+              Meta Alvo: {userProfile.targetAllocations.fiis}%
+            </div>
+          </div>
 
-            <div className="flex justify-center gap-4 mt-2 flex-wrap">
-              {chartData.map((entry, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <span
-                    className="w-3 h-3 rounded-full"
-                    style={{
-                      backgroundColor: COLORS[entry.name] || COLORS.OUTROS,
-                    }}
-                  ></span>
-                  <span className="text-xs text-[#8B949E] uppercase tracking-wider">
-                    {entry.name}
-                  </span>
-                </div>
-              ))}
+          {/* Card Renda Fixa */}
+          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-4 shadow">
+            <div className="flex justify-between items-center text-xs text-[#8B949E] mb-1 font-sans">
+              <span>RENDA FIXA / TESOURO</span>
+              <span className="text-[#F59E0B] font-bold">{pctRendaFixa.toFixed(1)}%</span>
+            </div>
+            <div className="text-lg font-bold text-[#F1F5F9]">
+              R$ {totalRendaFixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            <div className="text-[10px] text-[#8B949E] mt-2 font-sans">
+              Meta Alvo: {userProfile.targetAllocations.rendaFixa}%
             </div>
           </div>
         </div>
 
-        {/* --- NOVO: GRÁFICO DE EVOLUÇÃO PATRIMONIAL --- */}
-        <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
-          <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide mb-4">
-            EVOLUÇÃO DO PATRIMÔNIO TOTAL (R$)
+        {/* Comparativo de Alocação Atual vs Meta */}
+        <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow space-y-4">
+          <h2 className="text-sm font-bold text-[#F1F5F9] border-b border-[#2A2F3D] pb-2 font-sans">
+            DISTRIBUIÇÃO PATRIMONIAL vs META TÁTICA
           </h2>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={mockPatrimonyHistory}>
-                <defs>
-                  <linearGradient id="patrimonyGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10B981" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#2A2F3D" vertical={false} />
-                <XAxis dataKey="month" stroke="#8B949E" fontSize={12} tickLine={false} />
-                <YAxis
-                  stroke="#8B949E"
-                  fontSize={12}
-                  tickLine={false}
-                  domain={['dataMin - 10000', 'dataMax + 10000']}
-                  tickFormatter={(val) => `R$ ${(val / 1000).toFixed(0)}k`}
-                />
-                <Tooltip
-                  formatter={(val: number) =>
-                    `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                  }
-                  contentStyle={{ backgroundColor: '#1A1F2B', borderColor: '#2A2F3D', color: '#F1F5F9' }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="total"
-                  stroke="#10B981"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#patrimonyGradient)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-        {/* Tabela Consolidada */}
-        <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-[#F1F5F9] font-bold text-sm tracking-wide">
-              CARTEIRA INICIAL CADASTRADA
-            </h2>
-            <span className="text-[#3B82F6] font-bold text-sm font-mono border border-[#3B82F6]/30 bg-[#3B82F6]/10 px-3 py-1 rounded">
-              PATRIMÔNIO TOTAL: R${' '}
-              {totalPatrimony.toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D] bg-[#0B0E14] select-none">
-                <tr>
-                  <th className="px-4 py-3 rounded-tl cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('ticker')}>
-                    Ticker <SortIcon columnKey="ticker" />
-                  </th>
-                  <th className="px-4 py-3 cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('nome')}>
-                    Nome <SortIcon columnKey="nome" />
-                  </th>
-                  <th className="px-4 py-3 cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('classe')}>
-                    Classe <SortIcon columnKey="classe" />
-                  </th>
-                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('qtd')}>
-                    <SortIcon columnKey="qtd" /> Qtd
-                  </th>
-                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('cotacao')}>
-                    <SortIcon columnKey="cotacao" /> Cotação
-                  </th>
-                  <th className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('variacao')}>
-                    <SortIcon columnKey="variacao" /> Variação (Dia)
-                  </th>
-                  <th className="px-4 py-3 text-right rounded-tr cursor-pointer hover:bg-[#1A1F2B]" onClick={() => handleSort('valorTotal')}>
-                    <SortIcon columnKey="valorTotal" /> Valor Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#2A2F3D] font-mono">
-                {sortedAssets.map((item, idx) => (
-                  <tr
-                    key={idx}
-                    className="hover:bg-[#1A1F2B] transition-colors"
-                  >
-                    <td className="px-4 py-3 font-bold text-[#F1F5F9]">
-                      {item.asset?.ticker}
-                    </td>
-                    <td className="px-4 py-3 text-[#8B949E] font-sans text-xs">
-                      {item.asset?.name}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-[#3B82F6] font-sans">
-                      {item.asset?.assetClass}
-                    </td>
-                    <td className="px-4 py-3 text-right text-[#F1F5F9]">
-                      {item.currentQuantity}
-                    </td>
-                    <td className="px-4 py-3 text-right text-[#F1F5F9]">
-                      {item.currentPrice
-                        ? `R$ ${item.currentPrice.toFixed(2)}`
-                        : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {item.dailyChangePercent !== undefined ? (
-                        item.dailyChangePercent > 0 ? (
-                          <span className="text-[#10B981] bg-[#10B981]/10 px-2 py-1 rounded text-xs font-bold">
-                            {`+${item.dailyChangePercent.toFixed(2)}% ▲`}
-                          </span>
-                        ) : item.dailyChangePercent < 0 ? (
-                          <span className="text-[#EF4444] bg-[#EF4444]/10 px-2 py-1 rounded text-xs font-bold">
-                            {`${item.dailyChangePercent.toFixed(2)}% ▼`}
-                          </span>
-                        ) : (
-                          <span className="text-[#8B949E]">0.00% -</span>
-                        )
-                      ) : (
-                        <span className="text-[#8B949E]">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right text-[#F1F5F9] font-bold">
-                      {item.currentValue
-                        ? `R$ ${item.currentValue.toLocaleString('pt-BR', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}`
-                        : '-'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3 font-mono text-xs">
+            {/* Barra Ações */}
+            <div>
+              <div className="flex justify-between mb-1 font-sans">
+                <span>Ações ({pctAcoes.toFixed(1)}% atual)</span>
+                <span className="text-[#8B949E]">Alvo: {userProfile.targetAllocations.acoes}%</span>
+              </div>
+              <div className="w-full bg-[#0B0E14] h-2.5 rounded overflow-hidden">
+                <div
+                  className="bg-[#10B981] h-full transition-all duration-500"
+                  style={{ width: `${Math.min(pctAcoes, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Barra FIIs */}
+            <div>
+              <div className="flex justify-between mb-1 font-sans">
+                <span>FIIs ({pctFIIs.toFixed(1)}% atual)</span>
+                <span className="text-[#8B949E]">Alvo: {userProfile.targetAllocations.fiis}%</span>
+              </div>
+              <div className="w-full bg-[#0B0E14] h-2.5 rounded overflow-hidden">
+                <div
+                  className="bg-[#3B82F6] h-full transition-all duration-500"
+                  style={{ width: `${Math.min(pctFIIs, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Barra Renda Fixa */}
+            <div>
+              <div className="flex justify-between mb-1 font-sans">
+                <span>Renda Fixa ({pctRendaFixa.toFixed(1)}% atual)</span>
+                <span className="text-[#8B949E]">Alvo: {userProfile.targetAllocations.rendaFixa}%</span>
+              </div>
+              <div className="w-full bg-[#0B0E14] h-2.5 rounded overflow-hidden">
+                <div
+                  className="bg-[#F59E0B] h-full transition-all duration-500"
+                  style={{ width: `${Math.min(pctRendaFixa, 100)}%` }}
+                />
+              </div>
+            </div>
           </div>
         </div>
       </main>
