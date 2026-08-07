@@ -1,86 +1,25 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Sidebar } from '../../src/components/layout/Sidebar';
-import { initialAssets } from '../../src/data/initialState';
-import { updateAssetsWithPrices } from '../../src/api/stockApi';
+import { portfolioFIIs } from '../../src/data/portfolio';
 
-export default function FiisPage() {
-  const [assets, setAssets] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+export default function FIIsPage() {
+  const [filterSegmento, setFilterSegmento] = useState<string>('Todos');
 
-  // Estado para controlar a ordenação da tabela
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
-
-  useEffect(() => {
-    async function loadPrices() {
-      setLoading(true);
-      const updated = await updateAssetsWithPrices(initialAssets);
-      // FILTRO: Pega apenas os ativos da classe FII
-      const onlyFiis = updated.filter(
-        (item) => item.asset?.assetClass === 'FII'
-      );
-      setAssets(onlyFiis);
-      setLoading(false);
-    }
-
-    loadPrices();
+  const totalInvestido = useMemo(() => {
+    return portfolioFIIs.reduce((acc, item) => acc + item.quantidade * item.precoAtual, 0);
   }, []);
 
-  // Cálculos específicos para o resumo de FIIs
-  const totalInvested = assets.reduce(
-    (acc, item) => acc + (item.currentValue || 0),
-    0
-  );
+  const segmentosDisponiveis = useMemo(() => {
+    const segmentos = Array.from(new Set(portfolioFIIs.map((f) => f.segmento)));
+    return ['Todos', ...segmentos];
+  }, []);
 
-  const averageChange =
-    assets.length > 0
-      ? assets.reduce((acc, item) => acc + (item.dailyChangePercent || 0), 0) /
-        assets.length
-      : 0;
-
-  // Lógica de Ordenação
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
-
-  const sortedAssets = useMemo(() => {
-    let sortableAssets = [...assets];
-    if (sortConfig !== null) {
-      sortableAssets.sort((a, b) => {
-        let aValue: any;
-        let bValue: any;
-
-        switch (sortConfig.key) {
-          case 'ticker': aValue = a.asset?.ticker; bValue = b.asset?.ticker; break;
-          case 'nome': aValue = a.asset?.name; bValue = b.asset?.name; break;
-          case 'qtd': aValue = a.currentQuantity; bValue = b.currentQuantity; break;
-          case 'cotacao': aValue = a.currentPrice || 0; bValue = b.currentPrice || 0; break;
-          case 'variacao': aValue = a.dailyChangePercent || 0; bValue = b.dailyChangePercent || 0; break;
-          case 'valorTotal': aValue = a.currentValue || 0; bValue = b.currentValue || 0; break;
-          default: return 0;
-        }
-
-        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
-    return sortableAssets;
-  }, [assets, sortConfig]);
-
-  const SortIcon = ({ columnKey }: { columnKey: string }) => {
-    if (sortConfig?.key !== columnKey) return <span className="text-[#2A2F3D] ml-1">⇅</span>;
-    return sortConfig.direction === 'asc' ? (
-      <span className="text-[#8B5CF6] ml-1">▲</span>
-    ) : (
-      <span className="text-[#8B5CF6] ml-1">▼</span>
-    );
-  };
+  const fiisFiltrados = useMemo(() => {
+    if (filterSegmento === 'Todos') return portfolioFIIs;
+    return portfolioFIIs.filter((f) => f.segmento === filterSegmento);
+  }, [filterSegmento]);
 
   return (
     <div className="flex h-screen bg-[#0B0E14] text-[#F1F5F9] overflow-hidden font-sans">
@@ -90,141 +29,107 @@ export default function FiisPage() {
         {/* Cabeçalho */}
         <div className="flex justify-between items-center border-b border-[#2A2F3D] pb-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-[#8B5CF6]">
-              CARTEIRA DE FIIs
+            <h1 className="text-xl font-bold tracking-tight text-[#10B981]">
+              FUNDOS IMOBILIÁRIOS (FIIs)
             </h1>
             <p className="text-xs text-[#8B949E]">
-              Visão detalhada e performance dos Fundos Imobiliários
+              Acompanhamento de proventos mensais e segmentos
             </p>
           </div>
           <div className="text-right font-mono text-xs text-[#8B949E]">
-            <span>STATUS: </span>
-            <span className="text-[#10B981] font-bold">
-              {loading ? 'ATUALIZANDO...' : 'ONLINE'}
+            <span>TOTAL EM FIIs: </span>
+            <span className="text-[#10B981] font-bold text-sm">
+              R$ {totalInvestido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
           </div>
         </div>
 
-        {/* Cards de Resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
-            <p className="text-[#8B949E] text-xs mb-1 uppercase tracking-wider">
-              Patrimônio em FIIs
-            </p>
-            <p className="text-[#8B5CF6] text-2xl font-bold font-mono">
-              R${' '}
-              {totalInvested.toLocaleString('pt-BR', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </p>
+        {/* Filtros por Segmento */}
+        <div className="flex justify-between items-center">
+          <div className="flex space-x-2">
+            {segmentosDisponiveis.map((seg) => (
+              <button
+                key={seg}
+                onClick={() => setFilterSegmento(seg)}
+                className={`px-3 py-1.5 rounded text-xs font-semibold transition-colors ${
+                  filterSegmento === seg
+                    ? 'bg-[#10B981] text-[#0B0E14]'
+                    : 'bg-[#151922] text-[#8B949E] border border-[#2A2F3D] hover:text-[#F1F5F9]'
+                }`}
+              >
+                {seg}
+              </button>
+            ))}
           </div>
-          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
-            <p className="text-[#8B949E] text-xs mb-1 uppercase tracking-wider">
-              Desempenho Médio (Dia)
-            </p>
-            <p
-              className={`text-2xl font-bold font-mono ${
-                averageChange >= 0 ? 'text-[#10B981]' : 'text-[#EF4444]'
-              }`}
-            >
-              {averageChange > 0 ? '+' : ''}
-              {averageChange.toFixed(2)}% {averageChange >= 0 ? '▲' : '▼'}
-            </p>
-          </div>
+
+          <span className="text-xs text-[#8B949E] font-mono">
+            {fiisFiltrados.length} fundo(s) exibido(s)
+          </span>
         </div>
 
-        {/* Tabela Exclusiva de FIIs */}
+        {/* Tabela de FIIs */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D] bg-[#0B0E14] select-none">
+              <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D] bg-[#0B0E14]">
                 <tr>
-                  <th 
-                    className="px-4 py-3 rounded-tl cursor-pointer hover:bg-[#1A1F2B] transition-colors"
-                    onClick={() => handleSort('ticker')}
-                  >
-                    Ticker <SortIcon columnKey="ticker" />
-                  </th>
-                  <th 
-                    className="px-4 py-3 cursor-pointer hover:bg-[#1A1F2B] transition-colors"
-                    onClick={() => handleSort('nome')}
-                  >
-                    Nome <SortIcon columnKey="nome" />
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B] transition-colors"
-                    onClick={() => handleSort('qtd')}
-                  >
-                    <SortIcon columnKey="qtd" /> Qtd
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B] transition-colors"
-                    onClick={() => handleSort('cotacao')}
-                  >
-                    <SortIcon columnKey="cotacao" /> Cotação
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-right cursor-pointer hover:bg-[#1A1F2B] transition-colors"
-                    onClick={() => handleSort('variacao')}
-                  >
-                    <SortIcon columnKey="variacao" /> Variação (Dia)
-                  </th>
-                  <th 
-                    className="px-4 py-3 text-right rounded-tr cursor-pointer hover:bg-[#1A1F2B] transition-colors"
-                    onClick={() => handleSort('valorTotal')}
-                  >
-                    <SortIcon columnKey="valorTotal" /> Valor Total
-                  </th>
+                  <th className="px-4 py-3">Ticker / Fundo</th>
+                  <th className="px-4 py-3">Segmento</th>
+                  <th className="px-4 py-3 text-right">Qtd Cotas</th>
+                  <th className="px-4 py-3 text-right">Preço Atual</th>
+                  <th className="px-4 py-3 text-right">Preço Teto</th>
+                  <th className="px-4 py-3 text-right">DY Mensal (%)</th>
+                  <th className="px-4 py-3 text-right">Total Atual</th>
+                  <th className="px-4 py-3 text-center">Status</th>
+                  <th className="px-4 py-3 text-center">Research</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2A2F3D] font-mono">
-                {sortedAssets.map((item, idx) => (
-                  <tr
-                    key={idx}
-                    className="hover:bg-[#1A1F2B] transition-colors"
-                  >
-                    <td className="px-4 py-3 font-bold text-[#F1F5F9]">
-                      {item.asset?.ticker}
-                    </td>
-                    <td className="px-4 py-3 text-[#8B949E] font-sans text-xs">
-                      {item.asset?.name}
-                    </td>
-                    <td className="px-4 py-3 text-right text-[#F1F5F9]">
-                      {item.currentQuantity}
-                    </td>
-                    <td className="px-4 py-3 text-right text-[#F1F5F9]">
-                      {item.currentPrice
-                        ? `R$ ${item.currentPrice.toFixed(2)}`
-                        : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {item.dailyChangePercent !== undefined ? (
-                        item.dailyChangePercent > 0 ? (
-                          <span className="text-[#10B981] bg-[#10B981]/10 px-2 py-1 rounded text-xs font-bold">
-                            +{item.dailyChangePercent.toFixed(2)}% ▲
-                          </span>
-                        ) : item.dailyChangePercent < 0 ? (
-                          <span className="text-[#EF4444] bg-[#EF4444]/10 px-2 py-1 rounded text-xs font-bold">
-                            {item.dailyChangePercent.toFixed(2)}% ▼
-                          </span>
-                        ) : (
-                          <span className="text-[#8B949E]">0.00% -</span>
-                        )
-                      ) : (
-                        <span className="text-[#8B949E]">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right text-[#F1F5F9] font-bold">
-                      {item.currentValue
-                        ? `R$ ${item.currentValue.toLocaleString('pt-BR', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}`
-                        : '-'}
-                    </td>
-                  </tr>
-                ))}
+                {fiisFiltrados.map((item) => {
+                  const valorTotal = item.quantidade * item.precoAtual;
+                  const dentroDoTeto = item.precoAtual <= item.precoTeto;
+
+                  return (
+                    <tr key={item.ticker} className="hover:bg-[#1A1F2B] transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-bold text-[#F1F5F9]">{item.ticker}</div>
+                        <div className="text-[10px] text-[#8B949E] font-sans">{item.nome}</div>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-sans">
+                        <span className="bg-[#3B82F6]/10 text-[#3B82F6] px-2 py-0.5 rounded text-[10px] font-bold">
+                          {item.segmento}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-[#F1F5F9]">{item.quantidade}</td>
+                      <td className="px-4 py-3 text-right text-[#F1F5F9]">
+                        R$ {item.precoAtual.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-[#8B949E]">
+                        R$ {item.precoTeto.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-right text-[#10B981] font-bold">
+                        {item.dyMensal.toFixed(2)}%
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-[#F1F5F9]">
+                        R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold font-sans ${
+                            dentroDoTeto
+                              ? 'bg-[#10B981]/10 text-[#10B981]'
+                              : 'bg-[#EF4444]/10 text-[#EF4444]'
+                          }`}
+                        >
+                          {dentroDoTeto ? 'Abaixo do Teto' : 'Acima do Teto'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center text-xs font-sans text-[#8B949E]">
+                        {item.research}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
