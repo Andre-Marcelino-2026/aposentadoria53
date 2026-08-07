@@ -1,5 +1,5 @@
 // Base de Dados Unificada - Projeto Aposentadoria 53
-// Posição Real B3 (06/08/2026) + Inclusão de TRXF11 (5 cotas)
+// Consolidação Total: B3 (06/08/2026) + Itaú + Nubank + TRXF11 (5 cotas)
 
 export interface Acao {
   ticker: string;
@@ -25,7 +25,7 @@ export interface FII {
 
 export interface RendaFixa {
   nome: string;
-  tipo: 'Tesouro Direto' | 'CDB' | 'LCI/LCA';
+  tipo: 'Tesouro Direto' | 'CDB / RDB' | 'Fundo DI' | 'Previdência' | 'Caixinha/Cofrinho';
   quantidade: number;
   valorAplicado: number;
   valorAtual: number;
@@ -115,7 +115,7 @@ export const portfolioAcoes: Acao[] = [
   },
 ];
 
-// Carteira Real de FIIs / Fundos (Posição B3 + TRXF11)
+// Carteira Real de FIIs / Fundos (Posição B3 + 5 cotas TRXF11)
 export const portfolioFIIs: FII[] = [
   {
     ticker: 'XPLG11',
@@ -149,7 +149,7 @@ export const portfolioFIIs: FII[] = [
   },
 ];
 
-// Carteira Real de Renda Fixa / Tesouro Direto (Posição B3 06/08/2026)
+// Carteira Real de Renda Fixa / Caixa (Tesouro + Itaú + Nubank)
 export const portfolioRendaFixa: RendaFixa[] = [
   {
     nome: 'Tesouro IPCA+ 2029',
@@ -158,7 +158,16 @@ export const portfolioRendaFixa: RendaFixa[] = [
     valorAplicado: 35029.13,
     valorAtual: 38312.90,
     vencimento: '15/05/2029',
-    instituicao: 'NU INVESTIMENTOS S.A. - CTVM',
+    instituicao: 'Nu Investimentos S.A. - CTVM',
+  },
+  {
+    nome: 'Caixinhas Nubank (RDB 100% CDI)',
+    tipo: 'Caixinha/Cofrinho',
+    quantidade: 1,
+    valorAplicado: 60494.73,
+    valorAtual: 60494.73,
+    vencimento: 'Liquidez Diária',
+    instituicao: 'Nubank',
   },
   {
     nome: 'Tesouro IPCA+ 2032',
@@ -167,6 +176,33 @@ export const portfolioRendaFixa: RendaFixa[] = [
     valorAplicado: 10025.80,
     valorAtual: 10038.28,
     vencimento: '15/08/2032',
-    instituicao: 'XP INVESTIMENTOS CCTVM S/A',
+    instituicao: 'XP Investimentos CCTVM S/A',
+  },
+  {
+    nome: 'Itaú Privilege DI',
+    tipo: 'Fundo DI',
+    quantidade: 1,
+    valorAplicado: 61326.32,
+    valorAtual: 61326.32,
+    vencimento: 'Liquidez Diária',
+    instituicao: 'Banco Itaú',
+  },
+  {
+    nome: 'Cofrinho Itaú (100% CDI)',
+    tipo: 'Caixinha/Cofrinho',
+    quantidade: 1,
+    valorAplicado: 7176.54,
+    valorAtual: 7176.54,
+    vencimento: 'Liquidez Diária',
+    instituicao: 'Banco Itaú',
+  },
+  {
+    nome: 'Previdência Itaú (Acompanha CDI)',
+    tipo: 'Previdência',
+    quantidade: 1,
+    valorAplicado: 1044.97,
+    valorAtual: 1044.97,
+    vencimento: 'Longo Prazo',
+    instituicao: 'Banco Itaú',
   },
 ];
