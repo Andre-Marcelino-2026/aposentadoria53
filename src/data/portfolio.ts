@@ -1,5 +1,5 @@
 // Base de Dados Unificada - Projeto Aposentadoria 53
-// Ajustado com Nord Research, Finclass e Carteira Própria
+// Posição Real B3 (06/08/2026) + Inclusão de TRXF11 (5 cotas)
 
 export interface Acao {
   ticker: string;
@@ -30,14 +30,15 @@ export interface RendaFixa {
   valorAplicado: number;
   valorAtual: number;
   vencimento: string;
+  instituicao: string;
 }
 
 export interface UserProfile {
   targetMonthlyPassiveIncome: number;
   targetAllocations: {
-    acoes: number;      // % desejada em Ações
-    fiis: number;       // % desejada em FIIs
-    rendaFixa: number;  // % desejada em Renda Fixa
+    acoes: number;
+    fiis: number;
+    rendaFixa: number;
   };
 }
 
@@ -50,13 +51,13 @@ export const userProfile: UserProfile = {
   },
 };
 
-// Carteira Real de Ações (Posição B3)
+// Carteira Real de Ações (Posição B3 06/08/2026)
 export const portfolioAcoes: Acao[] = [
   {
     ticker: 'AXIA3',
     nome: 'AXIA ENERGIA S.A. ON',
     quantidade: 122,
-    precoAtual: 53.97,
+    precoAtual: 53.17,
     precoTeto: 62.00,
     categoria: 'Dividendos',
     dy: 7.2,
@@ -66,7 +67,7 @@ export const portfolioAcoes: Acao[] = [
     ticker: 'AXIA7',
     nome: 'AXIA ENERGIA S.A. PNC',
     quantidade: 32,
-    precoAtual: 52.80,
+    precoAtual: 52.93,
     precoTeto: 60.00,
     categoria: 'Dividendos',
     dy: 7.5,
@@ -76,7 +77,7 @@ export const portfolioAcoes: Acao[] = [
     ticker: 'B3SA3',
     nome: 'B3 S.A. ON',
     quantidade: 360,
-    precoAtual: 14.40,
+    precoAtual: 15.36,
     precoTeto: 16.50,
     categoria: 'Crescimento',
     dy: 4.8,
@@ -86,8 +87,8 @@ export const portfolioAcoes: Acao[] = [
     ticker: 'BBSE3',
     nome: 'BB SEGURIDADE ON',
     quantidade: 103,
-    precoAtual: 38.13,
-    precoTeto: 42.00,
+    precoAtual: 40.96,
+    precoTeto: 36.00,
     categoria: 'Dividendos',
     dy: 8.9,
     research: 'Nord Research',
@@ -96,17 +97,17 @@ export const portfolioAcoes: Acao[] = [
     ticker: 'BPAC11',
     nome: 'BCO BTG PACTUAL UNIT',
     quantidade: 142,
-    precoAtual: 54.00,
+    precoAtual: 56.15,
     precoTeto: 58.00,
     categoria: 'Crescimento',
     dy: 2.5,
-    research: 'Finclass',
+    research: 'Nord Research / Finclass',
   },
   {
     ticker: 'IRBR3',
     nome: 'IRB BRASIL ON',
     quantidade: 33,
-    precoAtual: 54.74,
+    precoAtual: 47.98,
     precoTeto: 50.00,
     categoria: 'Crescimento',
     dy: 1.2,
@@ -114,46 +115,58 @@ export const portfolioAcoes: Acao[] = [
   },
 ];
 
-// Carteira Real de FIIs / Fundos (Posição B3)
+// Carteira Real de FIIs / Fundos (Posição B3 + TRXF11)
 export const portfolioFIIs: FII[] = [
   {
     ticker: 'XPLG11',
     nome: 'XP LOG FDO INV IMOB',
     quantidade: 117,
-    precoAtual: 93.26,
+    precoAtual: 94.60,
     precoTeto: 105.00,
     segmento: 'Logística',
     dyMensal: 0.82,
-    research: 'Nord Research',
+    research: 'Nord / Finclass',
   },
   {
     ticker: 'CPTI11',
     nome: 'CAPITÂNIA FDO. INV. FINANCEIRO',
     quantidade: 72,
-    precoAtual: 85.84,
+    precoAtual: 84.71,
     precoTeto: 95.00,
     segmento: 'Papel / Crédito',
     dyMensal: 0.95,
     research: 'Finclass',
   },
+  {
+    ticker: 'TRXF11',
+    nome: 'TRX REAL ESTATE FII',
+    quantidade: 5,
+    precoAtual: 85.91,
+    precoTeto: 113.50,
+    segmento: 'Varejo / Imóveis Urbanos',
+    dyMensal: 1.82,
+    research: 'Nord Research',
+  },
 ];
 
-// Carteira Real de Renda Fixa / Tesouro Direto (Posição B3)
+// Carteira Real de Renda Fixa / Tesouro Direto (Posição B3 06/08/2026)
 export const portfolioRendaFixa: RendaFixa[] = [
   {
     nome: 'Tesouro IPCA+ 2029',
     tipo: 'Tesouro Direto',
     quantidade: 10.05,
     valorAplicado: 35029.13,
-    valorAtual: 37648.80,
+    valorAtual: 38312.90,
     vencimento: '15/05/2029',
+    instituicao: 'NU INVESTIMENTOS S.A. - CTVM',
   },
   {
     nome: 'Tesouro IPCA+ 2032',
     tipo: 'Tesouro Direto',
     quantidade: 3.41,
     valorAplicado: 10025.80,
-    valorAtual: 9871.57,
+    valorAtual: 10038.28,
     vencimento: '15/08/2032',
+    instituicao: 'XP INVESTIMENTOS CCTVM S/A',
   },
 ];
