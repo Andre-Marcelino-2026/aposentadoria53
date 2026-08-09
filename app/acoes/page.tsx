@@ -7,11 +7,14 @@ import { portfolioAcoes } from '../../src/data/portfolio';
 const BRAPI_TOKEN = 'oirG1gyFEtXo7ubChNnZgK';
 
 export default function AcoesPage() {
-  const [filter, setFilter] = useState<'Todos' | 'Dividendos' | 'Crescimento'>('Todos');
+  const [categoryFilter, setCategoryFilter] = useState<'Todos' | 'Dividendos' | 'Crescimento'>('Todos');
+  const [researchFilter, setResearchFilter] = useState<string>('Todas');
+  const [statusFilter, setStatusFilter] = useState<'Todos' | 'Abaixo Teto' | 'Acima Teto'>('Todos');
+
   const [realTimeData, setRealTimeData] = useState<Record<string, { price: number; change: number }>>({});
   const [loading, setLoading] = useState(true);
 
-  // Busca os dados da Brapi quando a página abre
+  // Busca cotações ao vivo na Brapi
   useEffect(() => {
     const fetchBrapi = async () => {
       try {
@@ -39,7 +42,7 @@ export default function AcoesPage() {
     fetchBrapi();
   }, []);
 
-  // Une os dados reais fixos (suas cotas) com o preço da tela em tempo real
+  // Mescla quantidade do portfolio com preço da Brapi
   const acoesAtualizadas = useMemo(() => {
     return portfolioAcoes.map((acao) => {
       const precoAoVivo = realTimeData[acao.ticker]?.price || acao.precoAtual;
@@ -48,21 +51,41 @@ export default function AcoesPage() {
     });
   }, [realTimeData]);
 
-  const totalInvestido = useMemo(() => {
-    return acoesAtualizadas.reduce((acc, item) => acc + item.quantidade * item.precoAoVivo, 0);
-  }, [acoesAtualizadas]);
+  // Lista de Researches únicas para o filtro
+  const listaResearches = useMemo(() => {
+    const setRes = new Set(portfolioAcoes.map((a) => a.research));
+    return ['Todas', ...Array.from(setRes)];
+  }, []);
 
+  // Aplicação dos Filtros
   const acoesFiltradas = useMemo(() => {
-    if (filter === 'Todos') return acoesAtualizadas;
-    return acoesAtualizadas.filter((a) => a.categoria === filter);
-  }, [filter, acoesAtualizadas]);
+    return acoesAtualizadas.filter((item) => {
+      // Filtro por Categoria
+      if (categoryFilter !== 'Todos' && item.categoria !== categoryFilter) return false;
+
+      // Filtro por Research
+      if (researchFilter !== 'Todas' && item.research !== researchFilter) return false;
+
+      // Filtro por Status do Preço Teto
+      const dentroDoTeto = item.precoAoVivo <= item.precoTeto;
+      if (statusFilter === 'Abaixo Teto' && !dentroDoTeto) return false;
+      if (statusFilter === 'Acima Teto' && dentroDoTeto) return false;
+
+      return true;
+    });
+  }, [acoesAtualizadas, categoryFilter, researchFilter, statusFilter]);
+
+  const totalInvestido = useMemo(() => {
+    return acoesFiltradas.reduce((acc, item) => acc + item.quantidade * item.precoAoVivo, 0);
+  }, [acoesFiltradas]);
 
   return (
     <div className="flex h-screen bg-[#0B0E14] text-[#F1F5F9] overflow-hidden font-sans">
       <Sidebar />
 
       <main className="flex-1 overflow-y-auto p-6 space-y-6">
-        <div className="flex justify-between items-center border-b border-[#2A2F3D] pb-4">
+        {/* Cabeçalho */}
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center border-b border-[#2A2F3D] pb-4 gap-4">
           <div>
             <h1 className="text-xl font-bold tracking-tight text-[#10B981]">CARTEIRA DE AÇÕES & ETFs</h1>
             <p className="text-xs text-[#8B949E]">
@@ -70,10 +93,72 @@ export default function AcoesPage() {
             </p>
           </div>
           <div className="text-right font-mono text-xs text-[#8B949E]">
-            <span>TOTAL EM AÇÕES/ETFs: </span>
+            <span>TOTAL EXIBIDO: </span>
             <span className="text-[#10B981] font-bold text-sm block">
               R$ {totalInvestido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
+          </div>
+        </div>
+
+        {/* CONTROLES DE FILTRO */}
+        <div className="bg-[#151922] border border-[#2A2F3D] rounded p-4 space-y-3">
+          <div className="text-xs font-bold text-[#8B949E] uppercase tracking-wider">Filtros de Busca</div>
+          <div className="flex flex-wrap gap-4 text-xs">
+            {/* Filtro por Categoria */}
+            <div>
+              <label className="block text-[#8B949E] mb-1">Categoria:</label>
+              <div className="flex gap-1">
+                {(['Todos', 'Dividendos', 'Crescimento'] as const).map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`px-3 py-1 rounded transition-colors ${
+                      categoryFilter === cat
+                        ? 'bg-[#10B981] text-[#0B0E14] font-bold'
+                        : 'bg-[#0B0E14] text-[#8B949E] hover:text-[#F1F5F9]'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Filtro por Status do Teto */}
+            <div>
+              <label className="block text-[#8B949E] mb-1">Status (Preço Teto):</label>
+              <div className="flex gap-1">
+                {(['Todos', 'Abaixo Teto', 'Acima Teto'] as const).map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setStatusFilter(st)}
+                    className={`px-3 py-1 rounded transition-colors ${
+                      statusFilter === st
+                        ? 'bg-[#3B82F6] text-[#F1F5F9] font-bold'
+                        : 'bg-[#0B0E14] text-[#8B949E] hover:text-[#F1F5F9]'
+                    }`}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Filtro por Casa de Análise / Research */}
+            <div>
+              <label className="block text-[#8B949E] mb-1">Research:</label>
+              <select
+                value={researchFilter}
+                onChange={(e) => setResearchFilter(e.target.value)}
+                className="bg-[#0B0E14] text-[#F1F5F9] border border-[#2A2F3D] rounded px-3 py-1 outline-none"
+              >
+                {listaResearches.map((res) => (
+                  <option key={res} value={res}>
+                    {res}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -88,7 +173,8 @@ export default function AcoesPage() {
                 <th className="px-4 py-3 text-right">Var. Dia</th>
                 <th className="px-4 py-3 text-right">Preço Teto</th>
                 <th className="px-4 py-3 text-right">Total Atual</th>
-                <th className="px-4 py-3 text-center">Status (Teto)</th>
+                <th className="px-4 py-3 text-center">Research</th>
+                <th className="px-4 py-3 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2A2F3D] font-mono">
@@ -106,16 +192,14 @@ export default function AcoesPage() {
                     </td>
                     <td className="px-4 py-3 text-right text-[#F1F5F9]">{item.quantidade}</td>
                     <td className="px-4 py-3 text-right text-[#F1F5F9]">R$ {item.precoAoVivo.toFixed(2)}</td>
-                    
-                    {/* Variação do Dia Colorida */}
                     <td className={`px-4 py-3 text-right font-bold ${isAlta ? 'text-[#10B981]' : isQueda ? 'text-[#EF4444]' : 'text-[#8B949E]'}`}>
                       {isAlta ? '▲ ' : isQueda ? '▼ ' : ''}{item.variacao.toFixed(2)}%
                     </td>
-
                     <td className="px-4 py-3 text-right text-[#8B949E]">R$ {item.precoTeto.toFixed(2)}</td>
                     <td className="px-4 py-3 text-right font-bold text-[#F1F5F9]">
                       R$ {valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </td>
+                    <td className="px-4 py-3 text-center text-xs font-sans text-[#8B949E]">{item.research}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-sans ${
                           dentroDoTeto ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#EF4444]/10 text-[#EF4444]'
