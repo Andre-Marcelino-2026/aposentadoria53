@@ -13,25 +13,35 @@ export default function AcoesPage() {
   const [realTimeData, setRealTimeData] = useState<Record<string, { price: number; change: number }>>({});
   const [loading, setLoading] = useState(true);
 
-  // Estado para ordenação ao clicar no cabeçalho
   const [sortField, setSortField] = useState<SortField>('valorTotal');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  // Busca cotações ao vivo na Brapi
   useEffect(() => {
     const fetchBrapi = async () => {
       try {
-        const tickers = portfolioAcoes.map((a) => a.ticker).join(',');
-        const res = await fetch(`https://brapi.dev/api/quote/${tickers}?token=${BRAPI_TOKEN}`);
+        // FILTRO DE PROTEÇÃO: Ignora recibos (terminados em 12, 13, 14) na consulta à API
+        const tickersValidos = portfolioAcoes
+          .map((a) => a.ticker)
+          .filter((t) => !t.endsWith('13') && !t.endsWith('12') && !t.endsWith('14'))
+          .join(',');
+
+        if (!tickersValidos) {
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(`https://brapi.dev/api/quote/${tickersValidos}?token=${BRAPI_TOKEN}`);
         const data = await res.json();
         
         const newData: Record<string, { price: number; change: number }> = {};
-        if (data.results) {
+        if (data && data.results) {
           data.results.forEach((item: any) => {
-            newData[item.symbol] = {
-              price: item.regularMarketPrice,
-              change: item.regularMarketChangePercent || 0,
-            };
+            if (item && item.symbol) {
+              newData[item.symbol] = {
+                price: item.regularMarketPrice || 0,
+                change: item.regularMarketChangePercent || 0,
+              };
+            }
           });
         }
         setRealTimeData(newData);
@@ -45,7 +55,6 @@ export default function AcoesPage() {
     fetchBrapi();
   }, []);
 
-  // Une dados e processa ordenação pelas colunas
   const acoesProcessadas = useMemo(() => {
     const lista = portfolioAcoes.map((acao) => {
       const precoAoVivo = realTimeData[acao.ticker]?.price || acao.precoAtual;
@@ -74,7 +83,6 @@ export default function AcoesPage() {
     return acoesProcessadas.reduce((acc, item) => acc + item.valorTotal, 0);
   }, [acoesProcessadas]);
 
-  // Função para alternar a ordenação ao clicar na coluna
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -109,7 +117,6 @@ export default function AcoesPage() {
           </div>
         </div>
 
-        {/* Tabela Principal */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D] bg-[#0B0E14]">
