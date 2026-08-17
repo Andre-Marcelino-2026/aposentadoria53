@@ -13,24 +13,35 @@ export default function FIIsPage() {
   const [realTimeData, setRealTimeData] = useState<Record<string, { price: number; change: number }>>({});
   const [loading, setLoading] = useState(true);
 
-  // Estado para ordenação ao clicar no cabeçalho
   const [sortField, setSortField] = useState<SortField>('valorTotal');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   useEffect(() => {
     const fetchBrapi = async () => {
       try {
-        const tickers = portfolioFIIs.map((f) => f.ticker).join(',');
-        const res = await fetch(`https://brapi.dev/api/quote/${tickers}?token=${BRAPI_TOKEN}`);
+        // FILTRO DE PROTEÇÃO: Ignora recibos na consulta
+        const tickersValidos = portfolioFIIs
+          .map((f) => f.ticker)
+          .filter((t) => !t.endsWith('13') && !t.endsWith('12') && !t.endsWith('14'))
+          .join(',');
+
+        if (!tickersValidos) {
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(`https://brapi.dev/api/quote/${tickersValidos}?token=${BRAPI_TOKEN}`);
         const data = await res.json();
         
         const newData: Record<string, { price: number; change: number }> = {};
-        if (data.results) {
+        if (data && data.results) {
           data.results.forEach((item: any) => {
-            newData[item.symbol] = {
-              price: item.regularMarketPrice,
-              change: item.regularMarketChangePercent || 0,
-            };
+            if (item && item.symbol) {
+              newData[item.symbol] = {
+                price: item.regularMarketPrice || 0,
+                change: item.regularMarketChangePercent || 0,
+              };
+            }
           });
         }
         setRealTimeData(newData);
@@ -44,7 +55,6 @@ export default function FIIsPage() {
     fetchBrapi();
   }, []);
 
-  // Une dados e processa ordenação pelas colunas
   const fiisProcessados = useMemo(() => {
     const lista = portfolioFIIs.map((fundo) => {
       const precoAoVivo = realTimeData[fundo.ticker]?.price || fundo.precoAtual;
@@ -107,7 +117,6 @@ export default function FIIsPage() {
           </div>
         </div>
 
-        {/* Tabela Principal */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D] bg-[#0B0E14]">
