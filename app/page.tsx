@@ -1,19 +1,103 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Sidebar } from '../src/components/layout/Sidebar';
-import { portfolioAcoes, portfolioFIIs, portfolioRendaFixa, userProfile } from '../src/data/portfolio';
+import { portfolioAcoes, portfolioFIIs, portfolioRendaFixa, userProfile, TAXA_SELIC_ANUAL } from '../src/data/portfolio';
 
-export default function DashboardHome() {
-  const totalAcoes = useMemo(() => portfolioAcoes.reduce((acc, item) => acc + item.quantidade * item.precoAtual, 0), []);
-  const totalFIIs = useMemo(() => portfolioFIIs.reduce((acc, item) => acc + item.quantidade * item.precoAtual, 0), []);
-  const totalRendaFixa = useMemo(() => portfolioRendaFixa.reduce((acc, item) => acc + item.valorAtual, 0), []);
+const BRAPI_TOKEN = 'oirG1gyFEtXo7ubChNnZgK';
+
+export default function DashboardPage() {
+  const [realTimeData, setRealTimeData] = useState<Record<string, { price: number; changeAbs: number; changePct: number }>>({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBrapi = async () => {
+      try {
+        const tickersRV = [...portfolioAcoes, ...portfolioFIIs]
+          .map((item) => item.ticker)
+          .filter((t) => !t.endsWith('13') && !t.endsWith('12') && !t.endsWith('14'))
+          .join(',');
+
+        if (!tickersRV) {
+          setLoading(false);
+          return;
+        }
+
+        const res = await fetch(`https://brapi.dev/api/quote/${tickersRV}?token=${BRAPI_TOKEN}`);
+        const data = await res.json();
+        
+        const newData: Record<string, { price: number; changeAbs: number; changePct: number }> = {};
+        if (data && data.results) {
+          data.results.forEach((item: any) => {
+            if (item && item.symbol) {
+              newData[item.symbol] = {
+                price: item.regularMarketPrice || 0,
+                changeAbs: item.regularMarketChange || 0,
+                changePct: item.regularMarketChangePercent || 0,
+              };
+            }
+          });
+        }
+        setRealTimeData(newData);
+      } catch (error) {
+        console.error('Erro ao conectar com Brapi:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBrapi();
+  }, []);
+
+  // 1. Processamento da Renda Variável (API Brapi)
+  const totalAcoes = portfolioAcoes.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)), 0);
+  const totalFIIs = portfolioFIIs.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)), 0);
   
-  const patrimonioTotal = useMemo(() => totalAcoes + totalFIIs + totalRendaFixa, [totalAcoes, totalFIIs, totalRendaFixa]);
+  const varAcoesAbs = portfolioAcoes.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.changeAbs || 0)), 0);
+  const varFIIsAbs = portfolioFIIs.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.changeAbs || 0)), 0);
 
-  const pctAcoes = patrimonioTotal > 0 ? (totalAcoes / patrimonioTotal) * 100 : 0;
-  const pctFIIs = patrimonioTotal > 0 ? (totalFIIs / patrimonioTotal) * 100 : 0;
-  const pctRendaFixa = patrimonioTotal > 0 ? (totalRendaFixa / patrimonioTotal) * 100 : 0;
+  // 2. Processamento da Renda Fixa (Simulação Selic)
+  const taxaDiariaSelic = Math.pow(1 + TAXA_SELIC_ANUAL / 100, 1 / 252) - 1;
+  const totalRF = portfolioRendaFixa.reduce((acc, item) => acc + item.valorAtual, 0);
+  const varRFAbs = totalRF * taxaDiariaSelic; // Rendimento diário simulado da Renda Fixa
+
+  // 3. Totais Consolidados do Patrimônio
+  const patrimonioTotal = totalAcoes + totalFIIs + totalRF;
+  const variacaoTotalAbs = varAcoesAbs + varFIIsAbs + varRFAbs;
+  const variacaoTotalPct = patrimonioTotal > 0 ? (variacaoTotalAbs / (patrimonioTotal - variacaoTotalAbs)) * 100 : 0;
+
+  // 4. Metas e Projeções
+  const rendaPassivaProjetada = patrimonioTotal * 0.008; // Projeção de 0,8% a.m.
+  const progressoMeta = Math.min((rendaPassivaProjetada / userProfile.targetMonthlyPassiveIncome) * 100, 100);
+
+  // 5. Preparar Tabela Consolidada (Top 10 ativos por valor)
+  const listaConsolidada = useMemo(() => {
+    const rv = [...portfolioAcoes, ...portfolioFIIs].map(item => ({
+      ticker: item.ticker,
+      nome: item.nome,
+      classe: portfolioAcoes.includes(item as any) ? 'AÇÕES/ETF' : 'FII',
+      qtd: item.quantidade,
+      cotacao: realTimeData[item.ticker]?.price || item.precoAtual,
+      varPct: realTimeData[item.ticker]?.changePct || 0,
+      varAbs: realTimeData[item.ticker]?.changeAbs || 0,
+      total: item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)
+    }));
+
+    const rf = portfolioRendaFixa.map(item => ({
+      ticker: item.nome,
+      nome: item.instituicao,
+      classe: 'RENDA FIXA',
+      qtd: item.quantidade,
+      cotacao: item.valorAtual / (item.quantidade || 1),
+      varPct: taxaDiariaSelic * 100,
+      varAbs: item.valorAtual * taxaDiariaSelic,
+      total: item.valorAtual
+    }));
+
+    return [...rv, ...rf].sort((a, b) => b.total - a.total).slice(0, 10); // Mostra os 10 maiores
+  }, [realTimeData, taxaDiariaSelic]);
+
+  const isAlta = variacaoTotalAbs >= 0;
 
   return (
     <div className="flex h-screen bg-[#0B0E14] text-[#F1F5F9] overflow-hidden font-sans">
@@ -22,86 +106,105 @@ export default function DashboardHome() {
       <main className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex justify-between items-center border-b border-[#2A2F3D] pb-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-[#10B981]">DASHBOARD PATRIMONIAL</h1>
-            <p className="text-xs text-[#8B949E]">Visão consolidada real (B3 + Itaú + Nubank) - Projeto Aposentadoria 53</p>
+            <h1 className="text-2xl font-bold tracking-tight text-[#F1F5F9]">DASHBOARD EXECUTIVO</h1>
+            <p className="text-sm text-[#8B949E]">Projeto Aposentadoria 53 • Visão Consolidada</p>
           </div>
-          <div className="text-right font-mono">
-            <span className="text-xs text-[#8B949E] block">PATRIMÔNIO TOTAL</span>
-            <span className="text-xl font-bold text-[#10B981]">
-              R$ {patrimonioTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </span>
+          <div className="text-right text-xs text-[#10B981] font-mono border border-[#10B981]/30 bg-[#10B981]/10 px-3 py-1 rounded">
+            {loading ? 'Sincronizando B3...' : 'STATUS: ONLINE'}
           </div>
         </div>
 
-        {/* Cards Resumo */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono">
-          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-4 shadow">
-            <div className="flex justify-between items-center text-xs text-[#8B949E] mb-1 font-sans">
-              <span>AÇÕES / ETFS / BDRS</span>
-              <span className="text-[#10B981] font-bold">{pctAcoes.toFixed(1)}%</span>
+        {/* Top Cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Card Patrimônio e Rendimento */}
+          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-6 shadow-lg flex flex-col justify-between">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-[11px] text-[#8B949E] uppercase tracking-wider mb-1">Rendimento Consolidado (Hoje)</p>
+                <div className="flex items-center space-x-3">
+                  <span className={`text-2xl font-bold font-mono ${isAlta ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+                    R$ {isAlta ? '+' : ''}{variacaoTotalAbs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${isAlta ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#EF4444]/10 text-[#EF4444]'}`}>
+                    {isAlta ? '▲' : '▼'} {variacaoTotalPct.toFixed(2)}%
+                  </span>
+                </div>
+                <p className="text-[10px] text-[#8B949E] mt-2">*Inclui simulação RF (Selic {TAXA_SELIC_ANUAL}% a.a.)</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[11px] text-[#8B949E] uppercase tracking-wider mb-1">Patrimônio Total</p>
+                <span className="text-2xl font-bold font-mono text-[#F1F5F9]">
+                  R$ {patrimonioTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
             </div>
-            <div className="text-lg font-bold text-[#F1F5F9]">
-              R$ {totalAcoes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <div className="text-[10px] text-[#8B949E] mt-2 font-sans">Meta Alvo: {userProfile.targetAllocations.acoes}%</div>
           </div>
 
-          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-4 shadow">
-            <div className="flex justify-between items-center text-xs text-[#8B949E] mb-1 font-sans">
-              <span>FUNDS IMOBILIÁRIOS (FIIs)</span>
-              <span className="text-[#3B82F6] font-bold">{pctFIIs.toFixed(1)}%</span>
+          {/* Card Meta */}
+          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-6 shadow-lg">
+            <div className="flex justify-between items-center mb-4">
+              <p className="text-[11px] text-[#8B949E] uppercase tracking-wider font-bold">Meta Aposentadoria 53 Anos</p>
             </div>
-            <div className="text-lg font-bold text-[#F1F5F9]">
-              R$ {totalFIIs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            <div className="flex justify-between items-end mb-4">
+              <div>
+                <p className="text-[10px] text-[#8B949E] uppercase tracking-wider mb-1">Renda Passiva Projetada (0,8% a.m.)</p>
+                <span className="text-xl font-bold font-mono text-[#3B82F6]">
+                  R$ {rendaPassivaProjetada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-[#8B949E] uppercase tracking-wider mb-1">Meta Mensal</p>
+                <span className="text-xl font-bold font-mono text-[#F1F5F9]">
+                  R$ {userProfile.targetMonthlyPassiveIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
+              </div>
             </div>
-            <div className="text-[10px] text-[#8B949E] mt-2 font-sans">Meta Alvo: {userProfile.targetAllocations.fiis}%</div>
-          </div>
-
-          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-4 shadow">
-            <div className="flex justify-between items-center text-xs text-[#8B949E] mb-1 font-sans">
-              <span>RENDA FIXA & CAIXA</span>
-              <span className="text-[#F59E0B] font-bold">{pctRendaFixa.toFixed(1)}%</span>
+            {/* Barra de Progresso */}
+            <div className="w-full bg-[#0B0E14] rounded-full h-2.5 mt-2 overflow-hidden border border-[#2A2F3D]">
+              <div className="bg-gradient-to-r from-[#3B82F6] to-[#10B981] h-2.5 rounded-full transition-all duration-1000" style={{ width: `${progressoMeta}%` }}></div>
             </div>
-            <div className="text-lg font-bold text-[#F1F5F9]">
-              R$ {totalRendaFixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </div>
-            <div className="text-[10px] text-[#8B949E] mt-2 font-sans">Meta Alvo: {userProfile.targetAllocations.rendaFixa}%</div>
+            <p className="text-right text-[10px] font-bold text-[#10B981] mt-2">{progressoMeta.toFixed(1)}% CONCLUÍDO</p>
           </div>
         </div>
 
-        {/* Distribuição vs Meta */}
-        <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 space-y-4">
-          <h2 className="text-sm font-bold text-[#F1F5F9] border-b border-[#2A2F3D] pb-2 font-sans">
-            DISTRIBUIÇÃO PATRIMONIAL vs META TÁTICA
-          </h2>
-          <div className="space-y-3 font-mono text-xs">
-            <div>
-              <div className="flex justify-between mb-1 font-sans">
-                <span>Renda Variável ({pctAcoes.toFixed(1)}% atual)</span>
-                <span className="text-[#8B949E]">Alvo: {userProfile.targetAllocations.acoes}%</span>
-              </div>
-              <div className="w-full bg-[#0B0E14] h-2.5 rounded overflow-hidden">
-                <div className="bg-[#10B981] h-full" style={{ width: `${Math.min(pctAcoes, 100)}%` }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between mb-1 font-sans">
-                <span>FIIs ({pctFIIs.toFixed(1)}% atual)</span>
-                <span className="text-[#8B949E]">Alvo: {userProfile.targetAllocations.fiis}%</span>
-              </div>
-              <div className="w-full bg-[#0B0E14] h-2.5 rounded overflow-hidden">
-                <div className="bg-[#3B82F6] h-full" style={{ width: `${Math.min(pctFIIs, 100)}%` }} />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between mb-1 font-sans">
-                <span>Renda Fixa & Caixa ({pctRendaFixa.toFixed(1)}% atual)</span>
-                <span className="text-[#8B949E]">Alvo: {userProfile.targetAllocations.rendaFixa}%</span>
-              </div>
-              <div className="w-full bg-[#0B0E14] h-2.5 rounded overflow-hidden">
-                <div className="bg-[#F59E0B] h-full" style={{ width: `${Math.min(pctRendaFixa, 100)}%` }} />
-              </div>
-            </div>
+        {/* Tabela Resumo (Top 10) */}
+        <div className="bg-[#151922] border border-[#2A2F3D] rounded shadow-lg overflow-hidden">
+          <div className="px-5 py-4 border-b border-[#2A2F3D] bg-[#0B0E14] flex justify-between items-center">
+            <h2 className="text-sm font-bold text-[#F1F5F9]">MAIORES POSIÇÕES DA CARTEIRA</h2>
+          </div>
+          <div className="overflow-x-auto p-5">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D]">
+                <tr>
+                  <th className="px-4 py-3">Ativo</th>
+                  <th className="px-4 py-3">Classe</th>
+                  <th className="px-4 py-3 text-right">Cotação / Ref</th>
+                  <th className="px-4 py-3 text-right">Var (Dia)</th>
+                  <th className="px-4 py-3 text-right">Valor Total (R$)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#2A2F3D] font-mono">
+                {listaConsolidada.map((item, idx) => {
+                  const alta = item.varPct >= 0;
+                  return (
+                    <tr key={idx} className="hover:bg-[#1A1F2B] transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-bold text-[#F1F5F9]">{item.ticker}</div>
+                        <div className="text-[10px] text-[#8B949E] font-sans truncate max-w-[120px]">{item.nome}</div>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-sans text-[#3B82F6]">{item.classe}</td>
+                      <td className="px-4 py-3 text-right text-[#F1F5F9]">R$ {item.cotacao.toFixed(2)}</td>
+                      <td className={`px-4 py-3 text-right font-bold ${alta ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+                        {alta ? '▲' : '▼'} {Math.abs(item.varPct).toFixed(2)}%
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-[#F1F5F9]">
+                        R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       </main>
