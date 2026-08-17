@@ -1,6 +1,7 @@
 // Base de Dados Unificada - Projeto Aposentadoria 53
 // Consolidação Total Exata: Exportação B3 + Itaú + Nubank
 
+export const TAXA_SELIC_ANUAL = 14.0; // Altere este valor sempre que o Banco Central mudar a taxa
 export interface Acao {
   ticker: string;
   nome: string;
