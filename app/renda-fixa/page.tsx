@@ -2,18 +2,26 @@
 
 import { useState, useMemo } from 'react';
 import { Sidebar } from '../../src/components/layout/Sidebar';
-import { portfolioRendaFixa } from '../../src/data/portfolio';
+import { portfolioRendaFixa, TAXA_SELIC_ANUAL } from '../../src/data/portfolio';
 
-type SortField = 'nome' | 'instituicao' | 'tipo' | 'valorAtual' | 'vencimento';
+type SortField = 'nome' | 'instituicao' | 'tipo' | 'valorAtual' | 'variacaoAbs';
 type SortOrder = 'asc' | 'desc';
 
 export default function RendaFixaPage() {
   const [sortField, setSortField] = useState<SortField>('valorAtual');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
-  // Ordena a lista de acordo com a coluna selecionada
   const rendaFixaProcessada = useMemo(() => {
-    return [...portfolioRendaFixa].sort((a, b) => {
+    // Cálculo exato de Juros Compostos para a Taxa Diária (Base 252 dias úteis)
+    const taxaDiaria = Math.pow(1 + TAXA_SELIC_ANUAL / 100, 1 / 252) - 1;
+
+    const lista = portfolioRendaFixa.map((item) => {
+      const variacaoAbs = item.valorAtual * taxaDiaria;
+      const variacaoPct = taxaDiaria * 100;
+      return { ...item, variacaoAbs, variacaoPct };
+    });
+
+    return lista.sort((a, b) => {
       let aVal = a[sortField];
       let bVal = b[sortField];
 
@@ -30,8 +38,12 @@ export default function RendaFixaPage() {
   }, [sortField, sortOrder]);
 
   const totalRendaFixa = useMemo(() => {
-    return portfolioRendaFixa.reduce((acc, item) => acc + item.valorAtual, 0);
-  }, []);
+    return rendaFixaProcessada.reduce((acc, item) => acc + item.valorAtual, 0);
+  }, [rendaFixaProcessada]);
+
+  const rendimentoDiarioTotal = useMemo(() => {
+    return rendaFixaProcessada.reduce((acc, item) => acc + item.variacaoAbs, 0);
+  }, [rendaFixaProcessada]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -54,26 +66,28 @@ export default function RendaFixaPage() {
       <main className="flex-1 overflow-y-auto p-6 space-y-6">
         <div className="flex justify-between items-center border-b border-[#2A2F3D] pb-4">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-[#10B981]">RENDA FIXA & CAIXA</h1>
+            <h1 className="text-xl font-bold tracking-tight text-[#10B981]">CARTEIRA DE RENDA FIXA</h1>
             <p className="text-xs text-[#8B949E]">
-              Clique no cabeçalho de qualquer coluna para ordenar ⇅
+              Simulação diária automática atrelada à Selic de {TAXA_SELIC_ANUAL.toFixed(2)}% a.a.
             </p>
           </div>
           <div className="text-right font-mono text-xs text-[#8B949E]">
-            <span>TOTAL RENDA FIXA: </span>
+            <span>PATRIMÔNIO EM RENDA FIXA: </span>
             <span className="text-[#10B981] font-bold text-sm block">
               R$ {totalRendaFixa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </span>
+            <span className="text-[#10B981] text-[10px]">
+              Rendimento Hoje: + R$ {rendimentoDiarioTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </span>
           </div>
         </div>
 
-        {/* Tabela Principal */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 shadow-lg overflow-x-auto">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D] bg-[#0B0E14]">
               <tr>
                 <th className="px-4 py-3 cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('nome')}>
-                  Ativo / Aplicação {renderSortIcon('nome')}
+                  Ativo / Ticker {renderSortIcon('nome')}
                 </th>
                 <th className="px-4 py-3 cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('instituicao')}>
                   Instituição {renderSortIcon('instituicao')}
@@ -81,11 +95,11 @@ export default function RendaFixaPage() {
                 <th className="px-4 py-3 cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('tipo')}>
                   Tipo {renderSortIcon('tipo')}
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('valorAtual')}>
-                  Valor Atual (R$) {renderSortIcon('valorAtual')}
+                <th className="px-4 py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('variacaoAbs')}>
+                  Var. Simulada (Dia) {renderSortIcon('variacaoAbs')}
                 </th>
-                <th className="px-4 py-3 text-center cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('vencimento')}>
-                  Vencimento {renderSortIcon('vencimento')}
+                <th className="px-4 py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('valorAtual')}>
+                  Valor Total (R$) {renderSortIcon('valorAtual')}
                 </th>
               </tr>
             </thead>
@@ -95,14 +109,16 @@ export default function RendaFixaPage() {
                   <td className="px-4 py-3 font-bold text-[#F1F5F9]">{item.nome}</td>
                   <td className="px-4 py-3 text-xs text-[#8B949E] font-sans">{item.instituicao}</td>
                   <td className="px-4 py-3 text-xs font-sans">
-                    <span className="bg-[#F59E0B]/10 text-[#F59E0B] px-2 py-0.5 rounded text-[10px] font-bold">
+                    <span className="bg-[#3B82F6]/10 text-[#3B82F6] px-2 py-0.5 rounded text-[10px] font-bold">
                       {item.tipo}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-right font-bold text-[#10B981]">
+                    + R$ {item.variacaoAbs.toFixed(2)} ({item.variacaoPct.toFixed(2)}%)
                   </td>
                   <td className="px-4 py-3 text-right font-bold text-[#F1F5F9]">
                     R$ {item.valorAtual.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="px-4 py-3 text-center text-xs text-[#8B949E] font-sans">{item.vencimento}</td>
                 </tr>
               ))}
             </tbody>
