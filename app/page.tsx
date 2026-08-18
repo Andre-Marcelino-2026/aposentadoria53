@@ -15,32 +15,38 @@ export default function DashboardPage() {
       try {
         const tickersRV = [...portfolioAcoes, ...portfolioFIIs]
           .map((item) => item.ticker)
-          .filter((t) => !t.endsWith('13') && !t.endsWith('12') && !t.endsWith('14'))
-          .join(',');
+          .filter((t) => !t.endsWith('13') && !t.endsWith('12') && !t.endsWith('14'));
 
-        if (!tickersRV) {
+        if (tickersRV.length === 0) {
           setLoading(false);
           return;
         }
 
-        const res = await fetch(`https://brapi.dev/api/quote/${tickersRV}?token=${BRAPI_TOKEN}`);
-        const data = await res.json();
-        
         const newData: Record<string, { price: number; changeAbs: number; changePct: number }> = {};
-        if (data && data.results) {
-          data.results.forEach((item: any) => {
-            if (item && item.symbol) {
-              newData[item.symbol] = {
-                price: item.regularMarketPrice || 0,
-                changeAbs: item.regularMarketChange || 0,
-                changePct: item.regularMarketChangePercent || 0,
-              };
+
+        // A SOLUÇÃO: Requisições individuais simultâneas para driblar a restrição do plano gratuito da Brapi
+        await Promise.all(
+          tickersRV.map(async (ticker) => {
+            try {
+              const res = await fetch(`https://brapi.dev/api/quote/${ticker}?token=${BRAPI_TOKEN}`);
+              const data = await res.json();
+              if (data && data.results && data.results.length > 0) {
+                const item = data.results[0];
+                newData[ticker] = {
+                  price: item.regularMarketPrice || 0,
+                  changeAbs: item.regularMarketChange || 0,
+                  changePct: item.regularMarketChangePercent || 0,
+                };
+              }
+            } catch (err) {
+              // Se um ticker falhar, falha em silêncio e não afeta os outros
             }
-          });
-        }
+          })
+        );
+        
         setRealTimeData(newData);
       } catch (error) {
-        console.error('Erro ao conectar com Brapi:', error);
+        console.error('Erro geral ao conectar com Brapi:', error);
       } finally {
         setLoading(false);
       }
@@ -59,15 +65,15 @@ export default function DashboardPage() {
   // 2. Processamento da Renda Fixa (Simulação Selic)
   const taxaDiariaSelic = Math.pow(1 + TAXA_SELIC_ANUAL / 100, 1 / 252) - 1;
   const totalRF = portfolioRendaFixa.reduce((acc, item) => acc + item.valorAtual, 0);
-  const varRFAbs = totalRF * taxaDiariaSelic; // Rendimento diário simulado da Renda Fixa
+  const varRFAbs = totalRF * taxaDiariaSelic;
 
   // 3. Totais Consolidados do Patrimônio
   const patrimonioTotal = totalAcoes + totalFIIs + totalRF;
   const variacaoTotalAbs = varAcoesAbs + varFIIsAbs + varRFAbs;
   const variacaoTotalPct = patrimonioTotal > 0 ? (variacaoTotalAbs / (patrimonioTotal - variacaoTotalAbs)) * 100 : 0;
 
-  // 4. Metas e Projeções
-  const rendaPassivaProjetada = patrimonioTotal * 0.008; // Projeção de 0,8% a.m.
+  // 4. Metas e Projeções (Corrigido para 2 casas decimais)
+  const rendaPassivaProjetada = patrimonioTotal * 0.008; 
   const progressoMeta = Math.min((rendaPassivaProjetada / userProfile.targetMonthlyPassiveIncome) * 100, 100);
 
   // 5. Preparar Tabela Consolidada (Top 10 ativos por valor)
@@ -94,7 +100,7 @@ export default function DashboardPage() {
       total: item.valorAtual
     }));
 
-    return [...rv, ...rf].sort((a, b) => b.total - a.total).slice(0, 10); // Mostra os 10 maiores
+    return [...rv, ...rf].sort((a, b) => b.total - a.total).slice(0, 10);
   }, [realTimeData, taxaDiariaSelic]);
 
   const isAlta = variacaoTotalAbs >= 0;
@@ -149,7 +155,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-[10px] text-[#8B949E] uppercase tracking-wider mb-1">Renda Passiva Projetada (0,8% a.m.)</p>
                 <span className="text-xl font-bold font-mono text-[#3B82F6]">
-                  R$ {rendaPassivaProjetada.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  R$ {rendaPassivaProjetada.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
               <div className="text-right">
