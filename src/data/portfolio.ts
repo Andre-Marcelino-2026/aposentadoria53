@@ -2,6 +2,7 @@
 // Consolidação Total Exata: Exportação B3 + Itaú + Nubank
 
 export const TAXA_SELIC_ANUAL = 14.0; // Altere este valor sempre que o Banco Central mudar a taxa
+
 export interface Acao {
   ticker: string;
   nome: string;
@@ -56,7 +57,7 @@ export const userProfile: UserProfile = {
 export const portfolioAcoes: Acao[] = [
   // Ações
   { ticker: 'AXIA3', nome: 'AXIA ENERGIA S.A. ON', quantidade: 122, precoAtual: 53.17, precoTeto: 62.00, categoria: 'Dividendos', dy: 7.2, research: 'Nord Research' },
-  { ticker: 'AXIA7', nome: 'AXIA ENERGIA S.A. PNC', quantidade: 32, precoAtual: 52.93, precoTeto: 60.00, categoria: 'Dividendos', dy: 7.5, research: 'Nord Research' },
+  { ticker: 'AXIA7', nome: 'AXIA ENERGIA S.A. PNC', quantidade: 31, precoAtual: 52.93, precoTeto: 60.00, categoria: 'Dividendos', dy: 7.5, research: 'Nord Research' },
   { ticker: 'B3SA3', nome: 'B3 S.A. ON', quantidade: 360, precoAtual: 15.36, precoTeto: 16.50, categoria: 'Crescimento', dy: 4.8, research: 'Finclass' },
   { ticker: 'BBSE3', nome: 'BB SEGURIDADE ON', quantidade: 103, precoAtual: 40.96, precoTeto: 36.00, categoria: 'Dividendos', dy: 8.9, research: 'Nord Research' },
   { ticker: 'BPAC11', nome: 'BCO BTG PACTUAL UNIT', quantidade: 142, precoAtual: 56.20, precoTeto: 58.00, categoria: 'Crescimento', dy: 2.5, research: 'Nord / Finclass' },
@@ -81,9 +82,9 @@ export const portfolioAcoes: Acao[] = [
 // Carteira Real de FIIs / Fundos (Posição B3 Exata)
 export const portfolioFIIs: FII[] = [
   { ticker: 'HSML11', nome: 'HSI MALLS FII', quantidade: 568, precoAtual: 83.57, precoTeto: 96.00, segmento: 'Shopping', dyMensal: 0.82, research: 'Nord Research' },
-  { ticker: 'MXRF11', nome: 'MAXI RENDA FII', quantidade: 3826, precoAtual: 9.43, precoTeto: 9.43, segmento: 'Papel / Crédito', dyMensal: 1.00, research: 'Carteira Própria' },
-  { ticker: 'MXRF13', nome: 'MAXI RENDA FII (RECIBO)', quantidade: 864, precoAtual: 9.58, precoTeto: 9.58, segmento: 'Papel / Crédito', dyMensal: 0.00, research: 'Carteira Própria' },
-  { ticker: 'TRXF11', nome: 'TRX REAL ESTATE FII', quantidade: 140, precoAtual: 84.41, precoTeto: 113.50, segmento: 'Varejo / Logística', dyMensal: 0.85, research: 'Nord Research' },
+  { ticker: 'MXRF11', nome: 'MAXI RENDA FII', quantidade: 4690, precoAtual: 9.43, precoTeto: 9.43, segmento: 'Papel / Crédito', dyMensal: 1.00, research: 'Carteira Própria' },
+  { ticker: 'TRXF11', nome: 'TRX REAL ESTATE FII', quantidade: 156, precoAtual: 84.41, precoTeto: 113.50, segmento: 'Varejo / Logística', dyMensal: 0.85, research: 'Nord Research' },
+  { ticker: 'TRXF12', nome: 'TRX REAL ESTATE (DIREITO)', quantidade: 123, precoAtual: 0.00, precoTeto: 0.00, segmento: 'Direitos', dyMensal: 0.00, research: 'Carteira Própria' },
   { ticker: 'VGIR11', nome: 'VALORA CRI CDI FII', quantidade: 1215, precoAtual: 9.52, precoTeto: 9.55, segmento: 'Papel / Crédito', dyMensal: 1.00, research: 'Nord Research' },
   { ticker: 'XPLG11', nome: 'XP LOG FII', quantidade: 117, precoAtual: 90.83, precoTeto: 105.00, segmento: 'Logística', dyMensal: 0.80, research: 'Nord / Finclass' },
   { ticker: 'CPTI11', nome: 'CAPITÂNIA FDO INV FINANCEIRO', quantidade: 72, precoAtual: 84.71, precoTeto: 95.00, segmento: 'Infraestrutura / RF', dyMensal: 0.95, research: 'Finclass' },
@@ -92,10 +93,10 @@ export const portfolioFIIs: FII[] = [
 // Carteira Real de Renda Fixa / Caixa (B3 + Itaú + Nubank)
 export const portfolioRendaFixa: RendaFixa[] = [
   // Títulos e ETFs Custodiados na B3 (XP / NuInvest)
-  { nome: 'Tesouro IPCA+ 2029', tipo: 'Tesouro Direto', quantidade: 10.05, valorAplicado: 35029.13, valorAtual: 38312.90, vencimento: '15/05/2029', instituicao: 'NU INVESTIMENTOS S.A.' },
-  { nome: 'Tesouro IPCA+ 2032', tipo: 'Tesouro Direto', quantidade: 3.41, valorAplicado: 10025.80, valorAtual: 10038.28, vencimento: '15/08/2032', instituicao: 'XP INVESTIMENTOS' },
-  { nome: 'CDB ITAU B255HRWE', tipo: 'CDB B3', quantidade: 1, valorAplicado: 7313.02, valorAtual: 7313.02, vencimento: '14/10/2030', instituicao: 'XP INVESTIMENTOS' },
-  { nome: 'CDB ITAU 726BONEG', tipo: 'CDB B3', quantidade: 1, valorAplicado: 10097.42, valorAtual: 10097.42, vencimento: '21/07/2031', instituicao: 'XP INVESTIMENTOS' },
+  { nome: 'Tesouro IPCA+ 2029', tipo: 'Tesouro Direto', quantidade: 10.05, valorAplicado: 35029.13, valorAtual: 38499.33, vencimento: '15/05/2029', instituicao: 'NU INVESTIMENTOS S.A.' },
+  { nome: 'Tesouro IPCA+ 2032', tipo: 'Tesouro Direto', quantidade: 3.41, valorAplicado: 10025.80, valorAtual: 10072.93, vencimento: '15/08/2032', instituicao: 'XP INVESTIMENTOS' },
+  { nome: 'CDB ITAU B255HRWE', tipo: 'CDB B3', quantidade: 1, valorAplicado: 7313.02, valorAtual: 7339.50, vencimento: '14/10/2030', instituicao: 'XP INVESTIMENTOS' },
+  { nome: 'CDB ITAU 726BONEG', tipo: 'CDB B3', quantidade: 1, valorAplicado: 10097.42, valorAtual: 6092.48, vencimento: '21/07/2031', instituicao: 'XP INVESTIMENTOS' },
   { nome: 'B5P211 (ETF Renda Fixa)', tipo: 'ETF RF', quantidade: 52, valorAplicado: 5694.52, valorAtual: 5694.52, vencimento: 'Indeterminado', instituicao: 'XP INVESTIMENTOS' },
   
   // Saldos Bancários (Nubank)
