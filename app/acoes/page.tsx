@@ -10,7 +10,7 @@ type SortField = 'ticker' | 'quantidade' | 'precoAoVivo' | 'variacao' | 'precoTe
 type SortOrder = 'asc' | 'desc';
 
 export default function AcoesPage() {
-  const [realTimeData, setRealTimeData] = useState<Record<string, { price: number; change: number }>>({});
+  const [realTimeData, setRealTimeData] = useState<Record<string, { price: number; change: number; changeAbs: number }>>({});
   const [loading, setLoading] = useState(true);
 
   const [sortField, setSortField] = useState<SortField>('valorTotal');
@@ -19,31 +19,35 @@ export default function AcoesPage() {
   useEffect(() => {
     const fetchBrapi = async () => {
       try {
-        // FILTRO DE PROTEÇÃO: Ignora recibos (terminados em 12, 13, 14) na consulta à API
         const tickersValidos = portfolioAcoes
           .map((a) => a.ticker)
-          .filter((t) => !t.endsWith('13') && !t.endsWith('12') && !t.endsWith('14'))
-          .join(',');
+          .filter((t) => !t.endsWith('13') && !t.endsWith('12') && !t.endsWith('14'));
 
-        if (!tickersValidos) {
+        if (tickersValidos.length === 0) {
           setLoading(false);
           return;
         }
 
-        const res = await fetch(`https://brapi.dev/api/quote/${tickersValidos}?token=${BRAPI_TOKEN}`);
-        const data = await res.json();
+        const newData: Record<string, { price: number; change: number; changeAbs: number }> = {};
         
-        const newData: Record<string, { price: number; change: number }> = {};
-        if (data && data.results) {
-          data.results.forEach((item: any) => {
-            if (item && item.symbol) {
-              newData[item.symbol] = {
-                price: item.regularMarketPrice || 0,
-                change: item.regularMarketChangePercent || 0,
-              };
-            }
-          });
-        }
+        // Correção: Múltiplas chamadas para o plano gratuito Brapi
+        await Promise.all(
+          tickersValidos.map(async (ticker) => {
+            try {
+              const res = await fetch(`https://brapi.dev/api/quote/${ticker}?token=${BRAPI_TOKEN}`);
+              const data = await res.json();
+              if (data && data.results && data.results.length > 0) {
+                const item = data.results[0];
+                newData[ticker] = {
+                  price: item.regularMarketPrice || 0,
+                  change: item.regularMarketChangePercent || 0,
+                  changeAbs: item.regularMarketChange || 0,
+                };
+              }
+            } catch (err) {}
+          })
+        );
+        
         setRealTimeData(newData);
       } catch (error) {
         console.error('Erro ao conectar com Brapi:', error);
@@ -59,8 +63,9 @@ export default function AcoesPage() {
     const lista = portfolioAcoes.map((acao) => {
       const precoAoVivo = realTimeData[acao.ticker]?.price || acao.precoAtual;
       const variacao = realTimeData[acao.ticker]?.change || 0;
+      const variacaoAbs = realTimeData[acao.ticker]?.changeAbs || 0;
       const valorTotal = acao.quantidade * precoAoVivo;
-      return { ...acao, precoAoVivo, variacao, valorTotal };
+      return { ...acao, precoAoVivo, variacao, variacaoAbs, valorTotal };
     });
 
     return lista.sort((a, b) => {
@@ -131,7 +136,7 @@ export default function AcoesPage() {
                   Preço (Live) {renderSortIcon('precoAoVivo')}
                 </th>
                 <th className="px-4 py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('variacao')}>
-                  Var. Dia (%) {renderSortIcon('variacao')}
+                  Var. Dia (R$ / %) {renderSortIcon('variacao')}
                 </th>
                 <th className="px-4 py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('precoTeto')}>
                   Preço Teto {renderSortIcon('precoTeto')}
@@ -157,7 +162,7 @@ export default function AcoesPage() {
                     <td className="px-4 py-3 text-right text-[#F1F5F9]">{item.quantidade}</td>
                     <td className="px-4 py-3 text-right text-[#F1F5F9]">R$ {item.precoAoVivo.toFixed(2)}</td>
                     <td className={`px-4 py-3 text-right font-bold ${isAlta ? 'text-[#10B981]' : isQueda ? 'text-[#EF4444]' : 'text-[#8B949E]'}`}>
-                      {isAlta ? '▲ ' : isQueda ? '▼ ' : ''}{item.variacao.toFixed(2)}%
+                      {isAlta ? '▲ ' : isQueda ? '▼ ' : ''} R$ {Math.abs(item.variacaoAbs).toFixed(2)} ({item.variacao.toFixed(2)}%)
                     </td>
                     <td className="px-4 py-3 text-right text-[#8B949E]">R$ {item.precoTeto.toFixed(2)}</td>
                     <td className="px-4 py-3 text-right font-bold text-[#F1F5F9]">
