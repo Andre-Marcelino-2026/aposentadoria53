@@ -6,9 +6,15 @@ import { portfolioAcoes, portfolioFIIs, portfolioRendaFixa, userProfile, TAXA_SE
 
 const BRAPI_TOKEN = 'oirG1gyFEtXo7ubChNnZgK';
 
+type SortField = 'ticker' | 'classe' | 'cotacao' | 'varPct' | 'total';
+type SortOrder = 'asc' | 'desc';
+
 export default function DashboardPage() {
   const [realTimeData, setRealTimeData] = useState<Record<string, { price: number; changeAbs: number; changePct: number }>>({});
   const [loading, setLoading] = useState(true);
+
+  const [sortField, setSortField] = useState<SortField>('total');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
   useEffect(() => {
     const fetchBrapi = async () => {
@@ -24,7 +30,7 @@ export default function DashboardPage() {
 
         const newData: Record<string, { price: number; changeAbs: number; changePct: number }> = {};
 
-        // A SOLUÇÃO: Requisições individuais simultâneas para driblar a restrição do plano gratuito da Brapi
+        // Chamadas simultâneas para driblar o limite da API gratuita
         await Promise.all(
           tickersRV.map(async (ticker) => {
             try {
@@ -39,7 +45,7 @@ export default function DashboardPage() {
                 };
               }
             } catch (err) {
-              // Se um ticker falhar, falha em silêncio e não afeta os outros
+              // Falha em silêncio por ticker
             }
           })
         );
@@ -55,28 +61,24 @@ export default function DashboardPage() {
     fetchBrapi();
   }, []);
 
-  // 1. Processamento da Renda Variável (API Brapi)
+  // Processamento Matemático
   const totalAcoes = portfolioAcoes.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)), 0);
   const totalFIIs = portfolioFIIs.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)), 0);
-  
   const varAcoesAbs = portfolioAcoes.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.changeAbs || 0)), 0);
   const varFIIsAbs = portfolioFIIs.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.changeAbs || 0)), 0);
 
-  // 2. Processamento da Renda Fixa (Simulação Selic)
   const taxaDiariaSelic = Math.pow(1 + TAXA_SELIC_ANUAL / 100, 1 / 252) - 1;
   const totalRF = portfolioRendaFixa.reduce((acc, item) => acc + item.valorAtual, 0);
   const varRFAbs = totalRF * taxaDiariaSelic;
 
-  // 3. Totais Consolidados do Patrimônio
   const patrimonioTotal = totalAcoes + totalFIIs + totalRF;
   const variacaoTotalAbs = varAcoesAbs + varFIIsAbs + varRFAbs;
   const variacaoTotalPct = patrimonioTotal > 0 ? (variacaoTotalAbs / (patrimonioTotal - variacaoTotalAbs)) * 100 : 0;
 
-  // 4. Metas e Projeções (Corrigido para 2 casas decimais)
   const rendaPassivaProjetada = patrimonioTotal * 0.008; 
   const progressoMeta = Math.min((rendaPassivaProjetada / userProfile.targetMonthlyPassiveIncome) * 100, 100);
 
-  // 5. Preparar Tabela Consolidada (Top 10 ativos por valor)
+  // Tabela Consolidada com Filtros e Ordenação (Sem limite de 10)
   const listaConsolidada = useMemo(() => {
     const rv = [...portfolioAcoes, ...portfolioFIIs].map(item => ({
       ticker: item.ticker,
@@ -100,8 +102,37 @@ export default function DashboardPage() {
       total: item.valorAtual
     }));
 
-    return [...rv, ...rf].sort((a, b) => b.total - a.total).slice(0, 10);
-  }, [realTimeData, taxaDiariaSelic]);
+    const lista = [...rv, ...rf];
+
+    return lista.sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+
+      if (typeof aVal === 'string') {
+        return sortOrder === 'asc'
+          ? (aVal as string).localeCompare(bVal as string)
+          : (bVal as string).localeCompare(aVal as string);
+      }
+
+      return sortOrder === 'asc'
+        ? (aVal as number) - (bVal as number)
+        : (bVal as number) - (aVal as number);
+    });
+  }, [realTimeData, taxaDiariaSelic, sortField, sortOrder]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('desc');
+    }
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) return <span className="text-[#4B5563] ml-1">⇅</span>;
+    return <span className="text-[#10B981] ml-1">{sortOrder === 'asc' ? '▲' : '▼'}</span>;
+  };
 
   const isAlta = variacaoTotalAbs >= 0;
 
@@ -120,9 +151,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Top Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Card Patrimônio e Rendimento */}
           <div className="bg-[#151922] border border-[#2A2F3D] rounded p-6 shadow-lg flex flex-col justify-between">
             <div className="flex justify-between items-start">
               <div>
@@ -146,7 +175,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Card Meta */}
           <div className="bg-[#151922] border border-[#2A2F3D] rounded p-6 shadow-lg">
             <div className="flex justify-between items-center mb-4">
               <p className="text-[11px] text-[#8B949E] uppercase tracking-wider font-bold">Meta Aposentadoria 53 Anos</p>
@@ -165,7 +193,6 @@ export default function DashboardPage() {
                 </span>
               </div>
             </div>
-            {/* Barra de Progresso */}
             <div className="w-full bg-[#0B0E14] rounded-full h-2.5 mt-2 overflow-hidden border border-[#2A2F3D]">
               <div className="bg-gradient-to-r from-[#3B82F6] to-[#10B981] h-2.5 rounded-full transition-all duration-1000" style={{ width: `${progressoMeta}%` }}></div>
             </div>
@@ -173,20 +200,30 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Tabela Resumo (Top 10) */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded shadow-lg overflow-hidden">
           <div className="px-5 py-4 border-b border-[#2A2F3D] bg-[#0B0E14] flex justify-between items-center">
-            <h2 className="text-sm font-bold text-[#F1F5F9]">MAIORES POSIÇÕES DA CARTEIRA</h2>
+            <h2 className="text-sm font-bold text-[#F1F5F9]">CARTEIRA CONSOLIDADA GERAL</h2>
+            <p className="text-xs text-[#8B949E]">Clique no cabeçalho para ordenar ⇅</p>
           </div>
           <div className="overflow-x-auto p-5">
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D]">
                 <tr>
-                  <th className="px-4 py-3">Ativo</th>
-                  <th className="px-4 py-3">Classe</th>
-                  <th className="px-4 py-3 text-right">Cotação / Ref</th>
-                  <th className="px-4 py-3 text-right">Var (Dia)</th>
-                  <th className="px-4 py-3 text-right">Valor Total (R$)</th>
+                  <th className="px-4 py-3 cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('ticker')}>
+                    Ativo {renderSortIcon('ticker')}
+                  </th>
+                  <th className="px-4 py-3 cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('classe')}>
+                    Classe {renderSortIcon('classe')}
+                  </th>
+                  <th className="px-4 py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('cotacao')}>
+                    Cotação / Ref {renderSortIcon('cotacao')}
+                  </th>
+                  <th className="px-4 py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('varPct')}>
+                    Var (Dia) {renderSortIcon('varPct')}
+                  </th>
+                  <th className="px-4 py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('total')}>
+                    Valor Total (R$) {renderSortIcon('total')}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2A2F3D] font-mono">
