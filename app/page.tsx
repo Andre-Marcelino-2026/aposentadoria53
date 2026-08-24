@@ -66,7 +66,6 @@ export default function DashboardPage() {
 
   const listaConsolidada = useMemo(() => {
     const rv = [...portfolioAcoes, ...portfolioFIIs].map(item => {
-      // Inteligência para separar Ações de ETFs
       let classeNome = 'FII';
       if (portfolioAcoes.includes(item as any)) {
         classeNome = item.nome.includes('ETF') ? 'ETFs' : 'AÇÕES';
@@ -79,7 +78,8 @@ export default function DashboardPage() {
         qtd: item.quantidade,
         cotacao: realTimeData[item.ticker]?.price || item.precoAtual,
         varPct: realTimeData[item.ticker]?.changePct || 0,
-        varAbs: realTimeData[item.ticker]?.changeAbs || 0,
+        // CORREÇÃO: Multiplicando a variação de 1 cota pela quantidade total que você possui
+        varAbs: (realTimeData[item.ticker]?.changeAbs || 0) * item.quantidade,
         total: item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)
       };
     });
