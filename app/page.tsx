@@ -8,13 +8,12 @@ const BRAPI_TOKEN = 'oirG1gyFEtXo7ubChNnZgK';
 
 type SortField = 'ticker' | 'classe' | 'cotacao' | 'varPct' | 'total';
 type SortOrder = 'asc' | 'desc';
-type FilterClass = 'TODOS' | 'AÇÕES/ETF' | 'FII' | 'RENDA FIXA';
+type FilterClass = 'TODOS' | 'AÇÕES' | 'ETFs' | 'FII' | 'RENDA FIXA';
 
 export default function DashboardPage() {
   const [realTimeData, setRealTimeData] = useState<Record<string, { price: number; changeAbs: number; changePct: number }>>({});
   const [loading, setLoading] = useState(true);
 
-  // Estados de Ordenação e Filtro
   const [sortField, setSortField] = useState<SortField>('total');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [filterClass, setFilterClass] = useState<FilterClass>('TODOS');
@@ -33,7 +32,6 @@ export default function DashboardPage() {
 
         const newData: Record<string, { price: number; changeAbs: number; changePct: number }> = {};
 
-        // Chamadas simultâneas
         await Promise.all(
           tickersRV.map(async (ticker) => {
             try {
@@ -66,18 +64,25 @@ export default function DashboardPage() {
 
   const taxaDiariaSelic = Math.pow(1 + TAXA_SELIC_ANUAL / 100, 1 / 252) - 1;
 
-  // 1. Primeiro criamos a lista completa com os cálculos individuais
   const listaConsolidada = useMemo(() => {
-    const rv = [...portfolioAcoes, ...portfolioFIIs].map(item => ({
-      ticker: item.ticker,
-      nome: item.nome,
-      classe: portfolioAcoes.includes(item as any) ? 'AÇÕES/ETF' : 'FII',
-      qtd: item.quantidade,
-      cotacao: realTimeData[item.ticker]?.price || item.precoAtual,
-      varPct: realTimeData[item.ticker]?.changePct || 0,
-      varAbs: realTimeData[item.ticker]?.changeAbs || 0,
-      total: item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)
-    }));
+    const rv = [...portfolioAcoes, ...portfolioFIIs].map(item => {
+      // Inteligência para separar Ações de ETFs
+      let classeNome = 'FII';
+      if (portfolioAcoes.includes(item as any)) {
+        classeNome = item.nome.includes('ETF') ? 'ETFs' : 'AÇÕES';
+      }
+
+      return {
+        ticker: item.ticker,
+        nome: item.nome,
+        classe: classeNome,
+        qtd: item.quantidade,
+        cotacao: realTimeData[item.ticker]?.price || item.precoAtual,
+        varPct: realTimeData[item.ticker]?.changePct || 0,
+        varAbs: realTimeData[item.ticker]?.changeAbs || 0,
+        total: item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)
+      };
+    });
 
     const rf = portfolioRendaFixa.map(item => ({
       ticker: item.nome,
@@ -92,12 +97,10 @@ export default function DashboardPage() {
 
     let lista = [...rv, ...rf];
 
-    // Aplica o filtro selecionado pelo utilizador
     if (filterClass !== 'TODOS') {
       lista = lista.filter(item => item.classe === filterClass);
     }
 
-    // Ordenação da tabela
     return lista.sort((a, b) => {
       let aVal = a[sortField];
       let bVal = b[sortField];
@@ -114,8 +117,6 @@ export default function DashboardPage() {
     });
   }, [realTimeData, taxaDiariaSelic, sortField, sortOrder, filterClass]);
 
-
-  // 2. TOTAIS DINÂMICOS (Calculam apenas o que estiver visível na tabela)
   const patrimonioDinamico = listaConsolidada.reduce((acc, item) => acc + item.total, 0);
   const variacaoDinamicaAbs = listaConsolidada.reduce((acc, item) => acc + item.varAbs, 0);
   const variacaoDinamicaPct = patrimonioDinamico > 0 ? (variacaoDinamicaAbs / (patrimonioDinamico - variacaoDinamicaAbs)) * 100 : 0;
@@ -222,7 +223,7 @@ export default function DashboardPage() {
             </div>
             
             <div className="flex space-x-1 bg-[#1A1F2B] p-1 rounded border border-[#2A2F3D] overflow-x-auto w-full md:w-auto hide-scrollbar">
-              {(['TODOS', 'AÇÕES/ETF', 'FII', 'RENDA FIXA'] as FilterClass[]).map((filtro) => (
+              {(['TODOS', 'AÇÕES', 'ETFs', 'FII', 'RENDA FIXA'] as FilterClass[]).map((filtro) => (
                 <button
                   key={filtro}
                   onClick={() => setFilterClass(filtro)}
