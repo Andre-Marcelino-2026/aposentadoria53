@@ -8,13 +8,18 @@ const BRAPI_TOKEN = 'oirG1gyFEtXo7ubChNnZgK';
 
 type SortField = 'ticker' | 'classe' | 'cotacao' | 'varPct' | 'total';
 type SortOrder = 'asc' | 'desc';
+type FilterClass = 'TODOS' | 'AÇÕES/ETF' | 'FII' | 'RENDA FIXA';
 
 export default function DashboardPage() {
   const [realTimeData, setRealTimeData] = useState<Record<string, { price: number; changeAbs: number; changePct: number }>>({});
   const [loading, setLoading] = useState(true);
 
+  // Estados de Ordenação
   const [sortField, setSortField] = useState<SortField>('total');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  
+  // Estado do Filtro
+  const [filterClass, setFilterClass] = useState<FilterClass>('TODOS');
 
   useEffect(() => {
     const fetchBrapi = async () => {
@@ -30,7 +35,7 @@ export default function DashboardPage() {
 
         const newData: Record<string, { price: number; changeAbs: number; changePct: number }> = {};
 
-        // Chamadas simultâneas para driblar o limite da API gratuita
+        // Chamadas simultâneas
         await Promise.all(
           tickersRV.map(async (ticker) => {
             try {
@@ -45,7 +50,7 @@ export default function DashboardPage() {
                 };
               }
             } catch (err) {
-              // Falha em silêncio por ticker
+              // Falha silenciosa
             }
           })
         );
@@ -61,7 +66,7 @@ export default function DashboardPage() {
     fetchBrapi();
   }, []);
 
-  // Processamento Matemático
+  // Totais Globais (Não são afetados pelo filtro da tabela)
   const totalAcoes = portfolioAcoes.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)), 0);
   const totalFIIs = portfolioFIIs.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)), 0);
   const varAcoesAbs = portfolioAcoes.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.changeAbs || 0)), 0);
@@ -78,7 +83,7 @@ export default function DashboardPage() {
   const rendaPassivaProjetada = patrimonioTotal * 0.008; 
   const progressoMeta = Math.min((rendaPassivaProjetada / userProfile.targetMonthlyPassiveIncome) * 100, 100);
 
-  // Tabela Consolidada com Filtros e Ordenação (Sem limite de 10)
+  // Tabela Consolidada com Filtros de Classe e Ordenação
   const listaConsolidada = useMemo(() => {
     const rv = [...portfolioAcoes, ...portfolioFIIs].map(item => ({
       ticker: item.ticker,
@@ -102,8 +107,14 @@ export default function DashboardPage() {
       total: item.valorAtual
     }));
 
-    const lista = [...rv, ...rf];
+    let lista = [...rv, ...rf];
 
+    // Aplicação do Filtro clicado pelo utilizador
+    if (filterClass !== 'TODOS') {
+      lista = lista.filter(item => item.classe === filterClass);
+    }
+
+    // Ordenação
     return lista.sort((a, b) => {
       let aVal = a[sortField];
       let bVal = b[sortField];
@@ -118,7 +129,7 @@ export default function DashboardPage() {
         ? (aVal as number) - (bVal as number)
         : (bVal as number) - (aVal as number);
     });
-  }, [realTimeData, taxaDiariaSelic, sortField, sortOrder]);
+  }, [realTimeData, taxaDiariaSelic, sortField, sortOrder, filterClass]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -151,6 +162,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Top Cards (Mantidos intactos) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-[#151922] border border-[#2A2F3D] rounded p-6 shadow-lg flex flex-col justify-between">
             <div className="flex justify-between items-start">
@@ -200,11 +212,32 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Tabela Consolidada com Menu de Filtros */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded shadow-lg overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#2A2F3D] bg-[#0B0E14] flex justify-between items-center">
-            <h2 className="text-sm font-bold text-[#F1F5F9]">CARTEIRA CONSOLIDADA GERAL</h2>
-            <p className="text-xs text-[#8B949E]">Clique no cabeçalho para ordenar ⇅</p>
+          <div className="px-5 py-4 border-b border-[#2A2F3D] bg-[#0B0E14] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h2 className="text-sm font-bold text-[#F1F5F9]">CARTEIRA CONSOLIDADA GERAL</h2>
+              <p className="text-xs text-[#8B949E]">Clique no cabeçalho para ordenar ⇅</p>
+            </div>
+            
+            {/* Sistema de Abas/Filtros */}
+            <div className="flex space-x-1 bg-[#1A1F2B] p-1 rounded border border-[#2A2F3D] overflow-x-auto max-w-full">
+              {(['TODOS', 'AÇÕES/ETF', 'FII', 'RENDA FIXA'] as FilterClass[]).map((filtro) => (
+                <button
+                  key={filtro}
+                  onClick={() => setFilterClass(filtro)}
+                  className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded transition-colors whitespace-nowrap ${
+                    filterClass === filtro
+                      ? 'bg-[#3B82F6] text-[#FFFFFF]'
+                      : 'text-[#8B949E] hover:text-[#F1F5F9] hover:bg-[#2A2F3D]'
+                  }`}
+                >
+                  {filtro}
+                </button>
+              ))}
+            </div>
           </div>
+          
           <div className="overflow-x-auto p-5">
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D]">
@@ -227,25 +260,33 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2A2F3D] font-mono">
-                {listaConsolidada.map((item, idx) => {
-                  const alta = item.varPct >= 0;
-                  return (
-                    <tr key={idx} className="hover:bg-[#1A1F2B] transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="font-bold text-[#F1F5F9]">{item.ticker}</div>
-                        <div className="text-[10px] text-[#8B949E] font-sans truncate max-w-[120px]">{item.nome}</div>
-                      </td>
-                      <td className="px-4 py-3 text-xs font-sans text-[#3B82F6]">{item.classe}</td>
-                      <td className="px-4 py-3 text-right text-[#F1F5F9]">R$ {item.cotacao.toFixed(2)}</td>
-                      <td className={`px-4 py-3 text-right font-bold ${alta ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
-                        {alta ? '▲' : '▼'} {Math.abs(item.varPct).toFixed(2)}%
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-[#F1F5F9]">
-                        R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {listaConsolidada.length > 0 ? (
+                  listaConsolidada.map((item, idx) => {
+                    const alta = item.varPct >= 0;
+                    return (
+                      <tr key={idx} className="hover:bg-[#1A1F2B] transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="font-bold text-[#F1F5F9]">{item.ticker}</div>
+                          <div className="text-[10px] text-[#8B949E] font-sans truncate max-w-[120px]">{item.nome}</div>
+                        </td>
+                        <td className="px-4 py-3 text-xs font-sans text-[#3B82F6]">{item.classe}</td>
+                        <td className="px-4 py-3 text-right text-[#F1F5F9]">R$ {item.cotacao.toFixed(2)}</td>
+                        <td className={`px-4 py-3 text-right font-bold ${alta ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+                          {alta ? '▲' : '▼'} {Math.abs(item.varPct).toFixed(2)}%
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-[#F1F5F9]">
+                          R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-[#8B949E] font-sans text-xs">
+                      Nenhum ativo encontrado nesta classe.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
