@@ -14,11 +14,9 @@ export default function DashboardPage() {
   const [realTimeData, setRealTimeData] = useState<Record<string, { price: number; changeAbs: number; changePct: number }>>({});
   const [loading, setLoading] = useState(true);
 
-  // Estados de Ordenação
+  // Estados de Ordenação e Filtro
   const [sortField, setSortField] = useState<SortField>('total');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
-  
-  // Estado do Filtro
   const [filterClass, setFilterClass] = useState<FilterClass>('TODOS');
 
   useEffect(() => {
@@ -66,7 +64,7 @@ export default function DashboardPage() {
     fetchBrapi();
   }, []);
 
-  // Totais Globais (Não são afetados pelo filtro da tabela)
+  // Totais Globais
   const totalAcoes = portfolioAcoes.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)), 0);
   const totalFIIs = portfolioFIIs.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)), 0);
   const varAcoesAbs = portfolioAcoes.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.changeAbs || 0)), 0);
@@ -83,7 +81,7 @@ export default function DashboardPage() {
   const rendaPassivaProjetada = patrimonioTotal * 0.008; 
   const progressoMeta = Math.min((rendaPassivaProjetada / userProfile.targetMonthlyPassiveIncome) * 100, 100);
 
-  // Tabela Consolidada com Filtros de Classe e Ordenação
+  // Tabela Consolidada
   const listaConsolidada = useMemo(() => {
     const rv = [...portfolioAcoes, ...portfolioFIIs].map(item => ({
       ticker: item.ticker,
@@ -109,12 +107,10 @@ export default function DashboardPage() {
 
     let lista = [...rv, ...rf];
 
-    // Aplicação do Filtro clicado pelo utilizador
     if (filterClass !== 'TODOS') {
       lista = lista.filter(item => item.classe === filterClass);
     }
 
-    // Ordenação
     return lista.sort((a, b) => {
       let aVal = a[sortField];
       let bVal = b[sortField];
@@ -141,8 +137,8 @@ export default function DashboardPage() {
   };
 
   const renderSortIcon = (field: SortField) => {
-    if (sortField !== field) return <span className="text-[#4B5563] ml-1">⇅</span>;
-    return <span className="text-[#10B981] ml-1">{sortOrder === 'asc' ? '▲' : '▼'}</span>;
+    if (sortField !== field) return <span className="text-[#4B5563] ml-1 text-[10px]">⇅</span>;
+    return <span className="text-[#10B981] ml-1 text-[10px]">{sortOrder === 'asc' ? '▲' : '▼'}</span>;
   };
 
   const isAlta = variacaoTotalAbs >= 0;
@@ -151,82 +147,81 @@ export default function DashboardPage() {
     <div className="flex h-screen bg-[#0B0E14] text-[#F1F5F9] overflow-hidden font-sans">
       <Sidebar />
 
-      <main className="flex-1 overflow-y-auto p-6 space-y-6">
+      <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
         <div className="flex justify-between items-center border-b border-[#2A2F3D] pb-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-[#F1F5F9]">DASHBOARD EXECUTIVO</h1>
-            <p className="text-sm text-[#8B949E]">Projeto Aposentadoria 53 • Visão Consolidada</p>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[#F1F5F9]">DASHBOARD EXECUTIVO</h1>
+            <p className="text-xs md:text-sm text-[#8B949E]">Projeto Aposentadoria 53 • Visão Consolidada</p>
           </div>
-          <div className="text-right text-xs text-[#10B981] font-mono border border-[#10B981]/30 bg-[#10B981]/10 px-3 py-1 rounded">
+          <div className="text-right text-[10px] md:text-xs text-[#10B981] font-mono border border-[#10B981]/30 bg-[#10B981]/10 px-2 py-1 rounded">
             {loading ? 'Sincronizando B3...' : 'STATUS: ONLINE'}
           </div>
         </div>
 
-        {/* Top Cards (Mantidos intactos) */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-6 shadow-lg flex flex-col justify-between">
+        {/* Top Cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 md:p-6 shadow-lg flex flex-col justify-between">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[11px] text-[#8B949E] uppercase tracking-wider mb-1">Rendimento Consolidado (Hoje)</p>
-                <div className="flex items-center space-x-3">
-                  <span className={`text-2xl font-bold font-mono ${isAlta ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+                <p className="text-[10px] md:text-[11px] text-[#8B949E] uppercase tracking-wider mb-1">Rendimento Consolidado (Hoje)</p>
+                <div className="flex items-center space-x-2 md:space-x-3">
+                  <span className={`text-xl md:text-2xl font-bold font-mono ${isAlta ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
                     R$ {isAlta ? '+' : ''}{variacaoTotalAbs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${isAlta ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#EF4444]/10 text-[#EF4444]'}`}>
+                  <span className={`px-2 py-0.5 rounded text-[10px] md:text-xs font-bold ${isAlta ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#EF4444]/10 text-[#EF4444]'}`}>
                     {isAlta ? '▲' : '▼'} {variacaoTotalPct.toFixed(2)}%
                   </span>
                 </div>
-                <p className="text-[10px] text-[#8B949E] mt-2">*Inclui simulação RF (Selic {TAXA_SELIC_ANUAL}% a.a.)</p>
+                <p className="text-[9px] md:text-[10px] text-[#8B949E] mt-2">*Inclui simulação RF (Selic {TAXA_SELIC_ANUAL}% a.a.)</p>
               </div>
               <div className="text-right">
-                <p className="text-[11px] text-[#8B949E] uppercase tracking-wider mb-1">Patrimônio Total</p>
-                <span className="text-2xl font-bold font-mono text-[#F1F5F9]">
+                <p className="text-[10px] md:text-[11px] text-[#8B949E] uppercase tracking-wider mb-1">Patrimônio Total</p>
+                <span className="text-xl md:text-2xl font-bold font-mono text-[#F1F5F9]">
                   R$ {patrimonioTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-6 shadow-lg">
+          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 md:p-6 shadow-lg">
             <div className="flex justify-between items-center mb-4">
-              <p className="text-[11px] text-[#8B949E] uppercase tracking-wider font-bold">Meta Aposentadoria 53 Anos</p>
+              <p className="text-[10px] md:text-[11px] text-[#8B949E] uppercase tracking-wider font-bold">Meta Aposentadoria 53 Anos</p>
             </div>
             <div className="flex justify-between items-end mb-4">
               <div>
-                <p className="text-[10px] text-[#8B949E] uppercase tracking-wider mb-1">Renda Passiva Projetada (0,8% a.m.)</p>
-                <span className="text-xl font-bold font-mono text-[#3B82F6]">
+                <p className="text-[9px] md:text-[10px] text-[#8B949E] uppercase tracking-wider mb-1">Renda Passiva Projetada (0,8% a.m.)</p>
+                <span className="text-lg md:text-xl font-bold font-mono text-[#3B82F6]">
                   R$ {rendaPassivaProjetada.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
               <div className="text-right">
-                <p className="text-[10px] text-[#8B949E] uppercase tracking-wider mb-1">Meta Mensal</p>
-                <span className="text-xl font-bold font-mono text-[#F1F5F9]">
+                <p className="text-[9px] md:text-[10px] text-[#8B949E] uppercase tracking-wider mb-1">Meta Mensal</p>
+                <span className="text-lg md:text-xl font-bold font-mono text-[#F1F5F9]">
                   R$ {userProfile.targetMonthlyPassiveIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
-            <div className="w-full bg-[#0B0E14] rounded-full h-2.5 mt-2 overflow-hidden border border-[#2A2F3D]">
-              <div className="bg-gradient-to-r from-[#3B82F6] to-[#10B981] h-2.5 rounded-full transition-all duration-1000" style={{ width: `${progressoMeta}%` }}></div>
+            <div className="w-full bg-[#0B0E14] rounded-full h-2 md:h-2.5 mt-2 overflow-hidden border border-[#2A2F3D]">
+              <div className="bg-gradient-to-r from-[#3B82F6] to-[#10B981] h-2 md:h-2.5 rounded-full transition-all duration-1000" style={{ width: `${progressoMeta}%` }}></div>
             </div>
-            <p className="text-right text-[10px] font-bold text-[#10B981] mt-2">{progressoMeta.toFixed(1)}% CONCLUÍDO</p>
+            <p className="text-right text-[9px] md:text-[10px] font-bold text-[#10B981] mt-2">{progressoMeta.toFixed(1)}% CONCLUÍDO</p>
           </div>
         </div>
 
-        {/* Tabela Consolidada com Menu de Filtros */}
+        {/* Tabela Consolidada */}
         <div className="bg-[#151922] border border-[#2A2F3D] rounded shadow-lg overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#2A2F3D] bg-[#0B0E14] flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="px-4 py-3 md:px-5 md:py-4 border-b border-[#2A2F3D] bg-[#0B0E14] flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <div>
               <h2 className="text-sm font-bold text-[#F1F5F9]">CARTEIRA CONSOLIDADA GERAL</h2>
-              <p className="text-xs text-[#8B949E]">Clique no cabeçalho para ordenar ⇅</p>
+              <p className="text-[10px] md:text-xs text-[#8B949E]">Clique no cabeçalho para ordenar ⇅</p>
             </div>
             
-            {/* Sistema de Abas/Filtros */}
-            <div className="flex space-x-1 bg-[#1A1F2B] p-1 rounded border border-[#2A2F3D] overflow-x-auto max-w-full">
+            <div className="flex space-x-1 bg-[#1A1F2B] p-1 rounded border border-[#2A2F3D] overflow-x-auto w-full md:w-auto hide-scrollbar">
               {(['TODOS', 'AÇÕES/ETF', 'FII', 'RENDA FIXA'] as FilterClass[]).map((filtro) => (
                 <button
                   key={filtro}
                   onClick={() => setFilterClass(filtro)}
-                  className={`px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded transition-colors whitespace-nowrap ${
+                  className={`flex-1 md:flex-none px-3 py-1.5 text-[9px] md:text-[10px] font-bold uppercase tracking-wider rounded transition-colors whitespace-nowrap ${
                     filterClass === filtro
                       ? 'bg-[#3B82F6] text-[#FFFFFF]'
                       : 'text-[#8B949E] hover:text-[#F1F5F9] hover:bg-[#2A2F3D]'
@@ -238,23 +233,24 @@ export default function DashboardPage() {
             </div>
           </div>
           
-          <div className="overflow-x-auto p-5">
-            <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D]">
+          <div className="overflow-x-auto p-4 md:p-5">
+            {/* Tabela agora com espaçamentos reduzidos no mobile (px-2) e w-max para não esticar */}
+            <table className="w-max md:w-full text-left text-xs md:text-sm whitespace-nowrap">
+              <thead className="text-[9px] md:text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D]">
                 <tr>
-                  <th className="px-4 py-3 cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('ticker')}>
+                  <th className="px-2 md:px-4 py-2 md:py-3 cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('ticker')}>
                     Ativo {renderSortIcon('ticker')}
                   </th>
-                  <th className="px-4 py-3 cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('classe')}>
+                  <th className="px-2 md:px-4 py-2 md:py-3 cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('classe')}>
                     Classe {renderSortIcon('classe')}
                   </th>
-                  <th className="px-4 py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('cotacao')}>
-                    Cotação / Ref {renderSortIcon('cotacao')}
+                  <th className="px-2 md:px-4 py-2 md:py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('cotacao')}>
+                    Cotação/Ref {renderSortIcon('cotacao')}
                   </th>
-                  <th className="px-4 py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('varPct')}>
+                  <th className="px-2 md:px-4 py-2 md:py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('varPct')}>
                     Var (Dia) {renderSortIcon('varPct')}
                   </th>
-                  <th className="px-4 py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('total')}>
+                  <th className="px-2 md:px-4 py-2 md:py-3 text-right cursor-pointer select-none hover:text-[#F1F5F9]" onClick={() => handleSort('total')}>
                     Valor Total (R$) {renderSortIcon('total')}
                   </th>
                 </tr>
@@ -265,16 +261,16 @@ export default function DashboardPage() {
                     const alta = item.varPct >= 0;
                     return (
                       <tr key={idx} className="hover:bg-[#1A1F2B] transition-colors">
-                        <td className="px-4 py-3">
+                        <td className="px-2 md:px-4 py-2 md:py-3">
                           <div className="font-bold text-[#F1F5F9]">{item.ticker}</div>
-                          <div className="text-[10px] text-[#8B949E] font-sans truncate max-w-[120px]">{item.nome}</div>
+                          <div className="text-[9px] md:text-[10px] text-[#8B949E] font-sans truncate max-w-[100px] md:max-w-[120px]">{item.nome}</div>
                         </td>
-                        <td className="px-4 py-3 text-xs font-sans text-[#3B82F6]">{item.classe}</td>
-                        <td className="px-4 py-3 text-right text-[#F1F5F9]">R$ {item.cotacao.toFixed(2)}</td>
-                        <td className={`px-4 py-3 text-right font-bold ${alta ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+                        <td className="px-2 md:px-4 py-2 md:py-3 text-[10px] md:text-xs font-sans text-[#3B82F6]">{item.classe}</td>
+                        <td className="px-2 md:px-4 py-2 md:py-3 text-right text-[#F1F5F9]">R$ {item.cotacao.toFixed(2)}</td>
+                        <td className={`px-2 md:px-4 py-2 md:py-3 text-right font-bold ${alta ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
                           {alta ? '▲' : '▼'} {Math.abs(item.varPct).toFixed(2)}%
                         </td>
-                        <td className="px-4 py-3 text-right font-bold text-[#F1F5F9]">
+                        <td className="px-2 md:px-4 py-2 md:py-3 text-right font-bold text-[#F1F5F9]">
                           R$ {item.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
@@ -282,7 +278,7 @@ export default function DashboardPage() {
                   })
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-[#8B949E] font-sans text-xs">
+                    <td colSpan={5} className="px-2 md:px-4 py-6 md:py-8 text-center text-[#8B949E] font-sans text-xs">
                       Nenhum ativo encontrado nesta classe.
                     </td>
                   </tr>
