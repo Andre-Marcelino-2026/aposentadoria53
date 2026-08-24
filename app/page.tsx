@@ -64,24 +64,9 @@ export default function DashboardPage() {
     fetchBrapi();
   }, []);
 
-  // Totais Globais
-  const totalAcoes = portfolioAcoes.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)), 0);
-  const totalFIIs = portfolioFIIs.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.price || item.precoAtual)), 0);
-  const varAcoesAbs = portfolioAcoes.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.changeAbs || 0)), 0);
-  const varFIIsAbs = portfolioFIIs.reduce((acc, item) => acc + (item.quantidade * (realTimeData[item.ticker]?.changeAbs || 0)), 0);
-
   const taxaDiariaSelic = Math.pow(1 + TAXA_SELIC_ANUAL / 100, 1 / 252) - 1;
-  const totalRF = portfolioRendaFixa.reduce((acc, item) => acc + item.valorAtual, 0);
-  const varRFAbs = totalRF * taxaDiariaSelic;
 
-  const patrimonioTotal = totalAcoes + totalFIIs + totalRF;
-  const variacaoTotalAbs = varAcoesAbs + varFIIsAbs + varRFAbs;
-  const variacaoTotalPct = patrimonioTotal > 0 ? (variacaoTotalAbs / (patrimonioTotal - variacaoTotalAbs)) * 100 : 0;
-
-  const rendaPassivaProjetada = patrimonioTotal * 0.008; 
-  const progressoMeta = Math.min((rendaPassivaProjetada / userProfile.targetMonthlyPassiveIncome) * 100, 100);
-
-  // Tabela Consolidada
+  // 1. Primeiro criamos a lista completa com os cálculos individuais
   const listaConsolidada = useMemo(() => {
     const rv = [...portfolioAcoes, ...portfolioFIIs].map(item => ({
       ticker: item.ticker,
@@ -107,10 +92,12 @@ export default function DashboardPage() {
 
     let lista = [...rv, ...rf];
 
+    // Aplica o filtro selecionado pelo utilizador
     if (filterClass !== 'TODOS') {
       lista = lista.filter(item => item.classe === filterClass);
     }
 
+    // Ordenação da tabela
     return lista.sort((a, b) => {
       let aVal = a[sortField];
       let bVal = b[sortField];
@@ -127,6 +114,16 @@ export default function DashboardPage() {
     });
   }, [realTimeData, taxaDiariaSelic, sortField, sortOrder, filterClass]);
 
+
+  // 2. TOTAIS DINÂMICOS (Calculam apenas o que estiver visível na tabela)
+  const patrimonioDinamico = listaConsolidada.reduce((acc, item) => acc + item.total, 0);
+  const variacaoDinamicaAbs = listaConsolidada.reduce((acc, item) => acc + item.varAbs, 0);
+  const variacaoDinamicaPct = patrimonioDinamico > 0 ? (variacaoDinamicaAbs / (patrimonioDinamico - variacaoDinamicaAbs)) * 100 : 0;
+  
+  const rendaPassivaProjetada = patrimonioDinamico * 0.008; 
+  const progressoMeta = Math.min((rendaPassivaProjetada / userProfile.targetMonthlyPassiveIncome) * 100, 100);
+  const isAlta = variacaoDinamicaAbs >= 0;
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -140,8 +137,6 @@ export default function DashboardPage() {
     if (sortField !== field) return <span className="text-[#4B5563] ml-1 text-[10px]">⇅</span>;
     return <span className="text-[#10B981] ml-1 text-[10px]">{sortOrder === 'asc' ? '▲' : '▼'}</span>;
   };
-
-  const isAlta = variacaoTotalAbs >= 0;
 
   return (
     <div className="flex h-screen bg-[#0B0E14] text-[#F1F5F9] overflow-hidden font-sans">
@@ -158,39 +153,47 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Top Cards */}
+        {/* Top Cards Dinâmicos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 md:p-6 shadow-lg flex flex-col justify-between">
+          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 md:p-6 shadow-lg flex flex-col justify-between transition-all duration-300">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] md:text-[11px] text-[#8B949E] uppercase tracking-wider mb-1">Rendimento Consolidado (Hoje)</p>
+                <p className="text-[10px] md:text-[11px] text-[#8B949E] uppercase tracking-wider mb-1">
+                  Rendimento {filterClass === 'TODOS' ? 'Consolidado' : `(${filterClass})`} Hoje
+                </p>
                 <div className="flex items-center space-x-2 md:space-x-3">
-                  <span className={`text-xl md:text-2xl font-bold font-mono ${isAlta ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
-                    R$ {isAlta ? '+' : ''}{variacaoTotalAbs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  <span className={`text-xl md:text-2xl font-bold font-mono transition-colors ${isAlta ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>
+                    R$ {isAlta ? '+' : ''}{variacaoDinamicaAbs.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
-                  <span className={`px-2 py-0.5 rounded text-[10px] md:text-xs font-bold ${isAlta ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#EF4444]/10 text-[#EF4444]'}`}>
-                    {isAlta ? '▲' : '▼'} {variacaoTotalPct.toFixed(2)}%
+                  <span className={`px-2 py-0.5 rounded text-[10px] md:text-xs font-bold transition-colors ${isAlta ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#EF4444]/10 text-[#EF4444]'}`}>
+                    {isAlta ? '▲' : '▼'} {variacaoDinamicaPct.toFixed(2)}%
                   </span>
                 </div>
-                <p className="text-[9px] md:text-[10px] text-[#8B949E] mt-2">*Inclui simulação RF (Selic {TAXA_SELIC_ANUAL}% a.a.)</p>
+                <p className="text-[9px] md:text-[10px] text-[#8B949E] mt-2">
+                  {filterClass === 'TODOS' || filterClass === 'RENDA FIXA' ? `*Inclui simulação RF (Selic ${TAXA_SELIC_ANUAL}% a.a.)` : '*Valores baseados no fecho/ao vivo da B3'}
+                </p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] md:text-[11px] text-[#8B949E] uppercase tracking-wider mb-1">Patrimônio Total</p>
-                <span className="text-xl md:text-2xl font-bold font-mono text-[#F1F5F9]">
-                  R$ {patrimonioTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                <p className="text-[10px] md:text-[11px] text-[#8B949E] uppercase tracking-wider mb-1">
+                  Patrimônio {filterClass !== 'TODOS' && 'Filtrado'}
+                </p>
+                <span className="text-xl md:text-2xl font-bold font-mono text-[#F1F5F9] transition-all">
+                  R$ {patrimonioDinamico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 md:p-6 shadow-lg">
+          <div className="bg-[#151922] border border-[#2A2F3D] rounded p-5 md:p-6 shadow-lg transition-all duration-300">
             <div className="flex justify-between items-center mb-4">
-              <p className="text-[10px] md:text-[11px] text-[#8B949E] uppercase tracking-wider font-bold">Meta Aposentadoria 53 Anos</p>
+              <p className="text-[10px] md:text-[11px] text-[#8B949E] uppercase tracking-wider font-bold">
+                Contribuição para Meta Aposentadoria
+              </p>
             </div>
             <div className="flex justify-between items-end mb-4">
               <div>
-                <p className="text-[9px] md:text-[10px] text-[#8B949E] uppercase tracking-wider mb-1">Renda Passiva Projetada (0,8% a.m.)</p>
-                <span className="text-lg md:text-xl font-bold font-mono text-[#3B82F6]">
+                <p className="text-[9px] md:text-[10px] text-[#8B949E] uppercase tracking-wider mb-1">Renda Passiva (0,8% a.m.)</p>
+                <span className="text-lg md:text-xl font-bold font-mono text-[#3B82F6] transition-all">
                   R$ {rendaPassivaProjetada.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
@@ -204,7 +207,9 @@ export default function DashboardPage() {
             <div className="w-full bg-[#0B0E14] rounded-full h-2 md:h-2.5 mt-2 overflow-hidden border border-[#2A2F3D]">
               <div className="bg-gradient-to-r from-[#3B82F6] to-[#10B981] h-2 md:h-2.5 rounded-full transition-all duration-1000" style={{ width: `${progressoMeta}%` }}></div>
             </div>
-            <p className="text-right text-[9px] md:text-[10px] font-bold text-[#10B981] mt-2">{progressoMeta.toFixed(1)}% CONCLUÍDO</p>
+            <p className="text-right text-[9px] md:text-[10px] font-bold text-[#10B981] mt-2 transition-all">
+              {progressoMeta.toFixed(1)}% CONCLUÍDO
+            </p>
           </div>
         </div>
 
@@ -234,7 +239,6 @@ export default function DashboardPage() {
           </div>
           
           <div className="overflow-x-auto p-4 md:p-5">
-            {/* Tabela agora com espaçamentos reduzidos no mobile (px-2) e w-max para não esticar */}
             <table className="w-max md:w-full text-left text-xs md:text-sm whitespace-nowrap">
               <thead className="text-[9px] md:text-[10px] text-[#8B949E] uppercase tracking-wider border-b border-[#2A2F3D]">
                 <tr>
